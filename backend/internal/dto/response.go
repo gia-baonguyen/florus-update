@@ -1,0 +1,354 @@
+package dto
+
+import "github.com/florus/backend/internal/models"
+
+// Auth Response
+type AuthResponse struct {
+	Token string       `json:"token"`
+	User  UserResponse `json:"user"`
+}
+
+// User Response
+type UserResponse struct {
+	ID         uint              `json:"id"`
+	Email      string            `json:"email"`
+	Name       string            `json:"name"`
+	Phone      string            `json:"phone,omitempty"`
+	Address    string            `json:"address,omitempty"`
+	Role       models.UserRole   `json:"role"`
+	UserStatus models.UserStatus `json:"user_status"`
+}
+
+func ToUserResponse(user *models.User) UserResponse {
+	return UserResponse{
+		ID:         user.ID,
+		Email:      user.Email,
+		Name:       user.Name,
+		Phone:      user.Phone,
+		Address:    user.Address,
+		Role:       user.Role,
+		UserStatus: user.UserStatus,
+	}
+}
+
+// Product Response
+type ProductResponse struct {
+	ID              uint                       `json:"id"`
+	Name            string                     `json:"name"`
+	Slug            string                     `json:"slug"`
+	Brand           string                     `json:"brand,omitempty"`
+	Price           float64                    `json:"price"`
+	OriginalPrice   *float64                   `json:"original_price,omitempty"`
+	Discount        float64                    `json:"discount,omitempty"`
+	CategoryID      uint                       `json:"category_id"`
+	Category        *CategoryResponse          `json:"category,omitempty"`
+	Description     string                     `json:"description,omitempty"`
+	ImageURL        string                     `json:"image_url,omitempty"`
+	Images          []ProductImageResponse     `json:"images,omitempty"`
+	Stock           int                        `json:"stock"`
+	InStock         bool                       `json:"in_stock"`
+	Rating          float64                    `json:"rating"`
+	ReviewCount     int                        `json:"review_count"`
+	AIScore         *float64                   `json:"ai_score,omitempty"`
+	AIRecommendType string                     `json:"ai_recommend_type,omitempty"`
+	Tags            []string                   `json:"tags,omitempty"`
+	Ingredients     []string                   `json:"ingredients,omitempty"`
+}
+
+type ProductImageResponse struct {
+	ID        uint   `json:"id"`
+	URL       string `json:"url"`
+	AltText   string `json:"alt_text,omitempty"`
+	SortOrder int    `json:"sort_order"`
+	IsPrimary bool   `json:"is_primary"`
+}
+
+func ToProductResponse(product *models.Product) ProductResponse {
+	resp := ProductResponse{
+		ID:              product.ID,
+		Name:            product.Name,
+		Slug:            product.Slug,
+		Brand:           product.Brand,
+		Price:           product.Price,
+		OriginalPrice:   product.OriginalPrice,
+		Discount:        product.CalculateDiscount(),
+		CategoryID:      product.CategoryID,
+		Description:     product.Description,
+		ImageURL:        product.ImageURL,
+		Stock:           product.Stock,
+		InStock:         product.IsInStock(),
+		Rating:          product.Rating,
+		ReviewCount:     product.ReviewCount,
+		AIScore:         product.AIScore,
+		AIRecommendType: product.AIRecommendType,
+	}
+
+	if product.Category.ID != 0 {
+		cat := ToCategoryResponse(&product.Category)
+		resp.Category = &cat
+	}
+
+	for _, tag := range product.Tags {
+		resp.Tags = append(resp.Tags, tag.TagName)
+	}
+
+	for _, ing := range product.Ingredients {
+		resp.Ingredients = append(resp.Ingredients, ing.IngredientName)
+	}
+
+	for _, img := range product.Images {
+		resp.Images = append(resp.Images, ProductImageResponse{
+			ID:        img.ID,
+			URL:       img.URL,
+			AltText:   img.AltText,
+			SortOrder: img.SortOrder,
+			IsPrimary: img.IsPrimary,
+		})
+	}
+
+	return resp
+}
+
+// Category Response
+type CategoryResponse struct {
+	ID          uint   `json:"id"`
+	Name        string `json:"name"`
+	Slug        string `json:"slug"`
+	Description string `json:"description,omitempty"`
+	ImageURL    string `json:"image_url,omitempty"`
+	ParentID    *uint  `json:"parent_id,omitempty"`
+	IsActive    bool   `json:"is_active"`
+}
+
+func ToCategoryResponse(category *models.Category) CategoryResponse {
+	return CategoryResponse{
+		ID:          category.ID,
+		Name:        category.Name,
+		Slug:        category.Slug,
+		Description: category.Description,
+		ImageURL:    category.ImageURL,
+		ParentID:    category.ParentID,
+		IsActive:    category.IsActive,
+	}
+}
+
+// Cart Response
+type CartResponse struct {
+	Items       []CartItemResponse `json:"items"`
+	Subtotal    float64            `json:"subtotal"`
+	ShippingFee float64            `json:"shipping_fee"`
+	Total       float64            `json:"total"`
+	ItemCount   int                `json:"item_count"`
+}
+
+type CartItemResponse struct {
+	ID        uint            `json:"id"`
+	ProductID uint            `json:"product_id"`
+	Product   ProductResponse `json:"product"`
+	Quantity  int             `json:"quantity"`
+	Price     float64         `json:"price"`
+	Total     float64         `json:"total"`
+}
+
+// Order Response
+type OrderResponse struct {
+	ID              uint                `json:"id"`
+	OrderCode       string              `json:"order_code"`
+	Subtotal        float64             `json:"subtotal"`
+	ShippingFee     float64             `json:"shipping_fee"`
+	Discount        float64             `json:"discount"`
+	Total           float64             `json:"total"`
+	Status          models.OrderStatus  `json:"status"`
+	ShippingAddress string              `json:"shipping_address"`
+	Note            string              `json:"note,omitempty"`
+	Items           []OrderItemResponse `json:"items,omitempty"`
+	CreatedAt       string              `json:"created_at"`
+}
+
+type OrderItemResponse struct {
+	ID         uint            `json:"id"`
+	ProductID  uint            `json:"product_id"`
+	Product    ProductResponse `json:"product,omitempty"`
+	Quantity   int             `json:"quantity"`
+	UnitPrice  float64         `json:"unit_price"`
+	TotalPrice float64         `json:"total_price"`
+}
+
+func ToOrderResponse(order *models.Order) OrderResponse {
+	resp := OrderResponse{
+		ID:              order.ID,
+		OrderCode:       order.OrderCode,
+		Subtotal:        order.Subtotal,
+		ShippingFee:     order.ShippingFee,
+		Discount:        order.Discount,
+		Total:           order.Total,
+		Status:          order.Status,
+		ShippingAddress: order.ShippingAddress,
+		Note:            order.Note,
+		CreatedAt:       order.CreatedAt.Format("2006-01-02 15:04:05"),
+	}
+
+	for _, item := range order.OrderItems {
+		resp.Items = append(resp.Items, OrderItemResponse{
+			ID:         item.ID,
+			ProductID:  item.ProductID,
+			Product:    ToProductResponse(&item.Product),
+			Quantity:   item.Quantity,
+			UnitPrice:  item.UnitPrice,
+			TotalPrice: item.TotalPrice,
+		})
+	}
+
+	return resp
+}
+
+// Admin Order Response (includes user info)
+type AdminOrderResponse struct {
+	ID              uint                `json:"id"`
+	OrderCode       string              `json:"order_code"`
+	User            UserResponse        `json:"user"`
+	Subtotal        float64             `json:"subtotal"`
+	ShippingFee     float64             `json:"shipping_fee"`
+	Discount        float64             `json:"discount"`
+	Total           float64             `json:"total"`
+	Status          models.OrderStatus  `json:"status"`
+	ShippingAddress string              `json:"shipping_address"`
+	Note            string              `json:"note,omitempty"`
+	Items           []OrderItemResponse `json:"items,omitempty"`
+	CreatedAt       string              `json:"created_at"`
+	UpdatedAt       string              `json:"updated_at"`
+}
+
+func ToAdminOrderResponse(order *models.Order) AdminOrderResponse {
+	resp := AdminOrderResponse{
+		ID:              order.ID,
+		OrderCode:       order.OrderCode,
+		User:            ToUserResponse(&order.User),
+		Subtotal:        order.Subtotal,
+		ShippingFee:     order.ShippingFee,
+		Discount:        order.Discount,
+		Total:           order.Total,
+		Status:          order.Status,
+		ShippingAddress: order.ShippingAddress,
+		Note:            order.Note,
+		CreatedAt:       order.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:       order.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}
+
+	for _, item := range order.OrderItems {
+		resp.Items = append(resp.Items, OrderItemResponse{
+			ID:         item.ID,
+			ProductID:  item.ProductID,
+			Product:    ToProductResponse(&item.Product),
+			Quantity:   item.Quantity,
+			UnitPrice:  item.UnitPrice,
+			TotalPrice: item.TotalPrice,
+		})
+	}
+
+	return resp
+}
+
+// Admin User Response (includes stats)
+type AdminUserResponse struct {
+	ID         uint              `json:"id"`
+	Email      string            `json:"email"`
+	Name       string            `json:"name"`
+	Phone      string            `json:"phone,omitempty"`
+	Address    string            `json:"address,omitempty"`
+	Role       models.UserRole   `json:"role"`
+	UserStatus models.UserStatus `json:"user_status"`
+	OrderCount int64             `json:"order_count"`
+	CreatedAt  string            `json:"created_at"`
+}
+
+func ToAdminUserResponse(user *models.User, orderCount int64) AdminUserResponse {
+	return AdminUserResponse{
+		ID:         user.ID,
+		Email:      user.Email,
+		Name:       user.Name,
+		Phone:      user.Phone,
+		Address:    user.Address,
+		Role:       user.Role,
+		UserStatus: user.UserStatus,
+		OrderCount: orderCount,
+		CreatedAt:  user.CreatedAt.Format("2006-01-02 15:04:05"),
+	}
+}
+
+// Dashboard Stats
+type DashboardStats struct {
+	TotalOrders       int64                `json:"total_orders"`
+	TotalRevenue      float64              `json:"total_revenue"`
+	TotalUsers        int64                `json:"total_users"`
+	PendingOrders     int64                `json:"pending_orders"`
+	OrdersByStatus    []OrderStatusCount   `json:"orders_by_status"`
+	NewUsersThisMonth int64                `json:"new_users_this_month"`
+	RecentOrders      []AdminOrderResponse `json:"recent_orders"`
+	TopProducts       []TopProduct         `json:"top_products"`
+}
+
+type OrderStatusCount struct {
+	Status string `json:"status"`
+	Count  int64  `json:"count"`
+}
+
+type TopProduct struct {
+	ID        uint   `json:"id"`
+	Name      string `json:"name"`
+	ImageURL  string `json:"image_url"`
+	TotalSold int64  `json:"total_sold"`
+}
+
+// Wishlist Response
+type WishlistResponse struct {
+	Items      []WishlistItemResponse `json:"items"`
+	TotalItems int                    `json:"total_items"`
+}
+
+type WishlistItemResponse struct {
+	ID        uint            `json:"id"`
+	ProductID uint            `json:"product_id"`
+	Product   ProductResponse `json:"product"`
+	CreatedAt string          `json:"created_at"`
+}
+
+func ToWishlistItemResponse(item *models.WishlistItem) WishlistItemResponse {
+	return WishlistItemResponse{
+		ID:        item.ID,
+		ProductID: item.ProductID,
+		Product:   ToProductResponse(&item.Product),
+		CreatedAt: item.CreatedAt.Format("2006-01-02 15:04:05"),
+	}
+}
+
+// Review Response
+type ReviewResponse struct {
+	ID        uint         `json:"id"`
+	UserID    uint         `json:"user_id"`
+	ProductID uint         `json:"product_id"`
+	Rating    int          `json:"rating"`
+	Comment   string       `json:"comment"`
+	User      UserResponse `json:"user"`
+	CreatedAt string       `json:"created_at"`
+	UpdatedAt string       `json:"updated_at"`
+}
+
+type ReviewListResponse struct {
+	Reviews       []ReviewResponse `json:"reviews"`
+	TotalReviews  int              `json:"total_reviews"`
+	AverageRating float64          `json:"average_rating"`
+}
+
+func ToReviewResponse(review *models.Review) ReviewResponse {
+	return ReviewResponse{
+		ID:        review.ID,
+		UserID:    review.UserID,
+		ProductID: review.ProductID,
+		Rating:    review.Rating,
+		Comment:   review.Comment,
+		User:      ToUserResponse(&review.User),
+		CreatedAt: review.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: review.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}
+}

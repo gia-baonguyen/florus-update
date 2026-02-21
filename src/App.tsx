@@ -1,72 +1,83 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider, useCart } from './context/CartContext';
+import { WishlistProvider } from './context/WishlistContext';
 import { Header } from './components/Header';
 import { MobileNavigation } from './components/MobileNavigation';
 import { HomePage } from './pages/HomePage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
 import { CartPage } from './pages/CartPage';
+import { CheckoutPage } from './pages/CheckoutPage';
+import { OrderHistoryPage } from './pages/OrderHistoryPage';
+import { LoginPage } from './pages/LoginPage';
+import { RegisterPage } from './pages/RegisterPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { WishlistPage } from './pages/WishlistPage';
+import { CategoryPage } from './pages/CategoryPage';
+
+// Admin imports
+import { AdminLayout } from './components/admin/AdminLayout';
+import { DashboardPage } from './pages/admin/DashboardPage';
+import { OrdersPage as AdminOrdersPage } from './pages/admin/OrdersPage';
+import { UsersPage } from './pages/admin/UsersPage';
+import { ProductsPage } from './pages/admin/ProductsPage';
+import { CategoriesPage } from './pages/admin/CategoriesPage';
+import { CouponsPage } from './pages/admin/CouponsPage';
 
 type Page = 'home' | 'product' | 'cart' | 'categories' | 'account';
 
-interface CartItem {
-  productId: string;
-  quantity: number;
-}
-
-export default function App() {
+function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [hasUserActivity, setHasUserActivity] = useState(false);
   const [lastViewedProduct, setLastViewedProduct] = useState<string | null>(null);
-  
-  // Toggle for Figma-friendly static banner (easier to copy to Figma)
-  // Set to true when you want to copy design to Figma
-  const useStaticBanner = true; // Changed to TRUE by default for better Figma copy experience
 
-  // Simulate user activity when they view a product
+  const { user, isAuthenticated, logout } = useAuth();
+  const { cart, addItem } = useCart();
+  const navigate = useNavigate();
+
+  const useStaticBanner = true;
+
+  // Load user activity from user status
+  useEffect(() => {
+    if (user && user.user_status === 'warm') {
+      setHasUserActivity(true);
+    }
+  }, [user]);
+
   const handleProductClick = (productId: string) => {
     setSelectedProductId(productId);
     setCurrentPage('product');
-    setHasUserActivity(true); // User becomes "warm" after viewing a product
-    setLastViewedProduct(productId); // Track last viewed for personalization
+    setHasUserActivity(true);
+    setLastViewedProduct(productId);
   };
 
-  const handleAddToCart = (productId: string) => {
-    setCartItems((prev) => {
-      const existing = prev.find((item) => item.productId === productId);
-      if (existing) {
-        return prev.map((item) =>
-          item.productId === productId
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prev, { productId, quantity: 1 }];
-    });
-  };
-
-  const handleUpdateQuantity = (productId: string, quantity: number) => {
-    setCartItems((prev) =>
-      prev.map((item) =>
-        item.productId === productId ? { ...item, quantity } : item
-      )
-    );
-  };
-
-  const handleRemoveItem = (productId: string) => {
-    setCartItems((prev) => prev.filter((item) => item.productId !== productId));
+  const handleAddToCart = async (productId: string) => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    try {
+      await addItem(parseInt(productId), 1);
+    } catch (err) {
+      console.error('Error adding to cart:', err);
+    }
   };
 
   const handleNavigate = (page: Page) => {
+    if (page === 'account' && !isAuthenticated) {
+      navigate('/login');
+      return;
+    }
     setCurrentPage(page);
     if (page === 'home') {
       setSelectedProductId(null);
     }
   };
 
-  const totalCartItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalCartItems = cart?.item_count || 0;
 
-  // Add mobile bottom navigation padding
   useEffect(() => {
     const isMobile = window.innerWidth < 768;
     if (isMobile) {
@@ -98,6 +109,9 @@ export default function App() {
         cartCount={totalCartItems}
         onCartClick={() => setCurrentPage('cart')}
         onLogoClick={() => handleNavigate('home')}
+        user={user}
+        onLogout={logout}
+        onProductClick={handleProductClick}
       />
 
       {/* Main Content */}
@@ -121,44 +135,15 @@ export default function App() {
 
         {currentPage === 'cart' && (
           <CartPage
-            cartItems={cartItems}
-            onUpdateQuantity={handleUpdateQuantity}
-            onRemoveItem={handleRemoveItem}
             onProductClick={handleProductClick}
-            onAddToCart={handleAddToCart}
           />
         )}
 
         {currentPage === 'categories' && (
-          <div className="min-h-screen bg-[var(--color-surface-warm)]">
-            <div className="container py-12">
-              <h1 className="mb-6 font-serif">Danh mục sản phẩm</h1>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {[
-                  { name: 'Makeup', emoji: '💄', desc: 'Son môi, phấn mắt, mascara' },
-                  { name: 'Skincare', emoji: '✨', desc: 'Serum, kem dưỡng, mặt nạ' },
-                  { name: 'Fragrance', emoji: '🌸', desc: 'Nước hoa cao cấp' },
-                  { name: 'Nails', emoji: '💅', desc: 'Sơn móng tay gel' },
-                  { name: 'Hair Care', emoji: '💇', desc: 'Dầu gội, dưỡng tóc' },
-                  { name: 'Body Care', emoji: '🧴', desc: 'Kem body, tắm trắng' },
-                  { name: 'Tools', emoji: '🔧', desc: 'Cọ trang điểm, dụng cụ' },
-                  { name: 'Sets', emoji: '🎁', desc: 'Bộ sản phẩm combo' },
-                ].map((category) => (
-                  <div
-                    key={category.name}
-                    className="bg-white rounded-xl border-2 border-[var(--color-border)] p-6 hover:border-[var(--color-primary)] hover:shadow-[var(--shadow-lg)] transition-all cursor-pointer group"
-                  >
-                    <div className="text-4xl mb-3">{category.emoji}</div>
-                    <h4 className="text-center mb-2 group-hover:text-[var(--color-primary)] transition-colors">{category.name}</h4>
-                    <p className="text-xs text-center text-[var(--color-text-muted)]">{category.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <CategoryPage onProductClick={handleProductClick} />
         )}
 
-        {currentPage === 'account' && (
+        {currentPage === 'account' && isAuthenticated && (
           <div className="min-h-screen bg-[var(--color-surface-warm)]">
             <div className="container py-12">
               <div className="max-w-md mx-auto bg-white rounded-2xl border border-[var(--color-border)] p-6 shadow-[var(--shadow-md)]">
@@ -166,35 +151,59 @@ export default function App() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 p-5 bg-gradient-to-br from-[var(--color-primary-light)] to-pink-50 rounded-xl border border-[var(--color-primary)]/20">
                     <div className="w-16 h-16 bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-rose-gold)] rounded-full flex items-center justify-center text-white shadow-[var(--shadow-md)]">
-                      <span className="text-xl">U</span>
+                      <span className="text-xl">{user?.name?.charAt(0).toUpperCase() || 'U'}</span>
                     </div>
                     <div>
-                      <h4>Beauty Lover</h4>
-                      <p className="text-xs text-[var(--color-text-muted)]">beautylover@florus.vn</p>
+                      <h4>{user?.name || 'User'}</h4>
+                      <p className="text-xs text-[var(--color-text-muted)]">{user?.email}</p>
+                      <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded-full ${
+                        user?.role === 'admin'
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {user?.role === 'admin' ? 'Admin' : 'User'}
+                      </span>
                     </div>
                   </div>
 
                   <div className="border-t border-[var(--color-border)] pt-4 space-y-2">
-                    <button className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface)] rounded-xl transition-colors">
+                    {user?.role === 'admin' && (
+                      <button
+                        onClick={() => navigate('/admin')}
+                        className="w-full text-left px-4 py-3 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors text-purple-700 font-medium"
+                      >
+                        Admin Dashboard
+                      </button>
+                    )}
+                    <button
+                      onClick={() => navigate('/orders')}
+                      className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface)] rounded-xl transition-colors"
+                    >
                       Đơn hàng của tôi
                     </button>
-                    <button className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface)] rounded-xl transition-colors">
+                    <button
+                      onClick={() => navigate('/wishlist')}
+                      className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface)] rounded-xl transition-colors"
+                    >
                       Sản phẩm yêu thích
                     </button>
-                    <button className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface)] rounded-xl transition-colors">
-                      Cài đặt
+                    <button
+                      onClick={() => navigate('/profile')}
+                      className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface)] rounded-xl transition-colors"
+                    >
+                      Cài đặt tài khoản
                     </button>
                   </div>
 
                   <div className="border-t border-[var(--color-border)] pt-4">
                     <div className={`p-4 rounded-xl border-2 ${
-                      hasUserActivity 
-                        ? 'bg-green-50 border-green-200' 
+                      user?.user_status === 'warm'
+                        ? 'bg-green-50 border-green-200'
                         : 'bg-gray-50 border-gray-200'
                     }`}>
-                      <h4 className={hasUserActivity ? 'text-green-700' : 'text-gray-700'}>Trạng thái người dùng</h4>
+                      <h4 className={user?.user_status === 'warm' ? 'text-green-700' : 'text-gray-700'}>Trạng thái AI</h4>
                       <p className="text-xs text-[var(--color-text-secondary)] mt-2 leading-relaxed">
-                        {hasUserActivity ? (
+                        {user?.user_status === 'warm' ? (
                           <>
                             <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                             <strong>Warm User</strong> - Nhận gợi ý cá nhân hóa từ AI Model
@@ -208,6 +217,13 @@ export default function App() {
                       </p>
                     </div>
                   </div>
+
+                  <button
+                    onClick={logout}
+                    className="w-full py-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium"
+                  >
+                    Đăng xuất
+                  </button>
                 </div>
               </div>
             </div>
@@ -234,5 +250,40 @@ export default function App() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AuthProvider>
+        <CartProvider>
+          <WishlistProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/orders" element={<OrderHistoryPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/wishlist" element={<WishlistPage />} />
+            <Route path="/categories" element={<CategoryPage onProductClick={(id) => window.location.href = `/?product=${id}`} />} />
+            <Route path="/categories/:categoryId" element={<CategoryPage onProductClick={(id) => window.location.href = `/?product=${id}`} />} />
+
+            {/* Admin Routes */}
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<DashboardPage />} />
+              <Route path="orders" element={<AdminOrdersPage />} />
+              <Route path="users" element={<UsersPage />} />
+              <Route path="products" element={<ProductsPage />} />
+              <Route path="categories" element={<CategoriesPage />} />
+              <Route path="coupons" element={<CouponsPage />} />
+            </Route>
+
+            <Route path="/*" element={<AppContent />} />
+          </Routes>
+          </WishlistProvider>
+        </CartProvider>
+      </AuthProvider>
+    </Router>
   );
 }

@@ -1,13 +1,13 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { ProductCard } from './ProductCard';
-import type { Product } from '../data/products';
+import type { Product } from '../types';
 
 interface ProductCarouselProps {
   title: string;
   subtitle?: string;
   products: Product[];
-  onProductClick: (productId: string) => void;
+  onProductClick: (productId: number) => void;
   recommendationLabel?: string;
 }
 
@@ -94,7 +94,6 @@ export function ProductCarousel({
             <ProductCard
               product={product}
               onClick={() => onProductClick(product.id)}
-              showLabel={recommendationLabel}
               compact
             />
           </div>
