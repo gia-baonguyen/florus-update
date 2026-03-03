@@ -14,6 +14,11 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+// Google OAuth DTO
+type GoogleLoginRequest struct {
+	IDToken string `json:"id_token" binding:"required"`
+}
+
 // Category DTOs
 type CreateCategoryRequest struct {
 	Name        string `json:"name" binding:"required"`
@@ -86,6 +91,7 @@ type CreateOrderRequest struct {
 	ShippingAddress string `json:"shipping_address" binding:"required"`
 	Note            string `json:"note"`
 	CouponCode      string `json:"coupon_code"`
+	PaymentMethod   string `json:"payment_method"` // cod, zalopay, momo, vnpay
 }
 
 type UpdateOrderStatusRequest struct {
@@ -120,4 +126,33 @@ type CreateReviewRequest struct {
 type UpdateReviewRequest struct {
 	Rating  *int    `json:"rating"`
 	Comment *string `json:"comment"`
+}
+
+// Payment DTOs
+type CreatePaymentRequest struct {
+	OrderCode     string `json:"order_code" binding:"required"`
+	PaymentMethod string `json:"payment_method" binding:"required"` // zalopay, momo, vnpay
+}
+
+type PaymentCallbackRequest struct {
+	// Common fields
+	TransactionID string `json:"transaction_id"`
+	OrderCode     string `json:"order_code"`
+	Status        string `json:"status"`
+	Amount        int64  `json:"amount"`
+
+	// ZaloPay specific
+	AppTransID string `json:"app_trans_id"`
+	ZpTransID  string `json:"zp_trans_id"`
+
+	// MoMo specific
+	RequestID   string `json:"requestId"`
+	PartnerCode string `json:"partnerCode"`
+	OrderID     string `json:"orderId"`
+	ResultCode  int    `json:"resultCode"`
+
+	// VNPay specific
+	VnpTxnRef        string `json:"vnp_TxnRef"`
+	VnpTransactionNo string `json:"vnp_TransactionNo"`
+	VnpResponseCode  string `json:"vnp_ResponseCode"`
 }

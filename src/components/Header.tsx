@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingCart, User, Sparkles, LogOut, X, Loader2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Search, ShoppingCart, User, Sparkles, LogOut, X, Loader2, History } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import { User as UserType, Product } from '../types';
 import { productsApi } from '../api/products';
 import { ProductImage } from './ProductImage';
@@ -19,6 +19,10 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  
+  const location = useLocation();
+  const isOrderHistoryPage = location.pathname === '/orders';
+  
   const searchRef = useRef<HTMLDivElement>(null);
   const mobileSearchRef = useRef<HTMLDivElement>(null);
 
@@ -75,10 +79,10 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'VND',
-    }).format(price);
+      currency: 'USD',
+    }).format(price / 1000);
   };
 
   const SearchResultsDropdown = () => (
@@ -104,7 +108,7 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
         </div>
       ) : (
         <div className="p-6 text-center">
-          <p className="text-[var(--color-text-muted)]">Không tìm thấy sản phẩm</p>
+          <p className="text-[var(--color-text-muted)]">No products found</p>
         </div>
       )}
     </div>
@@ -133,7 +137,7 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => searchResults.length > 0 && setShowResults(true)}
-                placeholder="Tìm kiếm sản phẩm..."
+                placeholder="Search products..."
                 className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
               />
               {searchQuery && (
@@ -152,16 +156,34 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
           <div className="flex items-center gap-2">
             {user ? (
               <div className="flex items-center gap-2">
+                {/* Order History Button */}
+                <Link
+                  to="/orders"
+                  className={`p-2 rounded-lg transition-colors group ${
+                    isOrderHistoryPage 
+                      ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]' 
+                      : 'hover:bg-[var(--color-primary-light)] text-gray-500'
+                  }`}
+                  title="Order History"
+                >
+                  <History className={`w-5 h-5 ${
+                    isOrderHistoryPage ? 'text-[var(--color-primary)]' : 'group-hover:text-[var(--color-primary)]'
+                  }`} />
+                </Link>
+
+                {/* User Profile */}
                 <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[var(--color-primary-light)] rounded-full">
                   <div className="w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center text-white text-xs">
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-sm text-[var(--color-primary-dark)] font-medium">{user.name}</span>
                 </div>
+                
+                {/* Logout Button */}
                 <button
                   onClick={onLogout}
                   className="p-2 hover:bg-red-50 rounded-lg transition-colors group"
-                  title="Đăng xuất"
+                  title="Sign Out"
                 >
                   <LogOut className="w-5 h-5 text-gray-500 group-hover:text-red-500" />
                 </button>
@@ -172,9 +194,11 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
                 className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors"
               >
                 <User className="w-4 h-4" />
-                <span className="hidden sm:inline text-sm font-medium">Đăng nhập</span>
+                <span className="hidden sm:inline text-sm font-medium">Sign In</span>
               </Link>
             )}
+
+            {/* Shopping Cart Button */}
             <button
               onClick={onCartClick}
               className="relative p-2 hover:bg-gray-50 rounded-lg transition-colors"
@@ -203,7 +227,7 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => searchResults.length > 0 && setShowResults(true)}
-            placeholder="Tìm kiếm sản phẩm..."
+            placeholder="Search products..."
             className="w-full pl-10 pr-10 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
           />
           {searchQuery && (

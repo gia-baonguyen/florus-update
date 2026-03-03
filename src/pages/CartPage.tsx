@@ -22,10 +22,10 @@ export function CartPage({ onProductClick }: CartPageProps) {
   const [appliedCoupon, setAppliedCoupon] = useState<ValidateCouponResponse | null>(null);
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'VND',
-    }).format(price);
+      currency: 'USD',
+    }).format(price / 1000);
   };
 
   // Not logged in
@@ -37,15 +37,15 @@ export function CartPage({ onProductClick }: CartPageProps) {
             <div className="w-20 h-20 mx-auto mb-4 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center">
               <ShoppingBag className="w-10 h-10 text-[var(--color-primary)]" />
             </div>
-            <h2 className="mb-2 font-serif">Vui lòng đăng nhập</h2>
+            <h2 className="mb-2 font-serif">Please Sign In</h2>
             <p className="text-[var(--color-text-secondary)] mb-6 leading-relaxed">
-              Đăng nhập để xem và quản lý giỏ hàng của bạn
+              Sign in to view and manage your cart
             </p>
             <Link
               to="/login"
               className="inline-block px-8 py-3 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)] transition-colors"
             >
-              Đăng nhập
+              Sign In
             </Link>
           </div>
         </div>
@@ -59,7 +59,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
       <div className="min-h-screen bg-[var(--color-surface-warm)] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-10 h-10 text-[var(--color-primary)] animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">Đang tải giỏ hàng...</p>
+          <p className="text-gray-500">Loading cart...</p>
         </div>
       </div>
     );
@@ -74,13 +74,13 @@ export function CartPage({ onProductClick }: CartPageProps) {
             <div className="w-20 h-20 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
               <span className="text-3xl">😢</span>
             </div>
-            <h2 className="mb-2 font-serif">Có lỗi xảy ra</h2>
+            <h2 className="mb-2 font-serif">An Error Occurred</h2>
             <p className="text-[var(--color-text-secondary)] mb-6">{error}</p>
             <button
               onClick={() => window.location.reload()}
               className="px-8 py-3 bg-[var(--color-primary)] text-white rounded-full"
             >
-              Thử lại
+              Try Again
             </button>
           </div>
         </div>
@@ -97,9 +97,9 @@ export function CartPage({ onProductClick }: CartPageProps) {
             <div className="w-20 h-20 mx-auto mb-4 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center">
               <ShoppingBag className="w-10 h-10 text-[var(--color-primary)]" />
             </div>
-            <h2 className="mb-2 font-serif">Giỏ hàng trống</h2>
+            <h2 className="mb-2 font-serif">Your Cart is Empty</h2>
             <p className="text-[var(--color-text-secondary)] mb-6 leading-relaxed">
-              Hãy thêm những sản phẩm làm đẹp yêu thích vào giỏ hàng để tiếp tục mua sắm
+              Add your favorite beauty products to the cart to continue shopping
             </p>
           </div>
         </div>
@@ -126,7 +126,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
       setAppliedCoupon(result);
       setCouponCode('');
     } catch (err: any) {
-      setCouponError(err.response?.data?.error || 'Mã giảm giá không hợp lệ');
+      setCouponError(err.response?.data?.error || 'Invalid coupon code');
       setAppliedCoupon(null);
     } finally {
       setCouponLoading(false);
@@ -145,7 +145,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
   return (
     <div className="min-h-screen bg-[var(--color-surface-warm)]">
       <div className="container py-6">
-        <h1 className="mb-6 font-serif">Giỏ hàng của bạn</h1>
+        <h1 className="mb-6 font-serif">Your Cart</h1>
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Cart Items - Left Column */}
@@ -227,7 +227,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
                       className="flex items-center gap-2 text-red-500 hover:text-red-600 disabled:opacity-50"
                     >
                       <Trash2 className="w-4 h-4" />
-                      Xóa
+                      Remove
                     </button>
 
                     <div className="flex items-center gap-2">
@@ -257,13 +257,13 @@ export function CartPage({ onProductClick }: CartPageProps) {
           <div className="space-y-4">
             {/* Order Summary */}
             <div className="bg-white rounded-xl border border-[var(--color-border)] p-6 sticky top-20 shadow-[var(--shadow-sm)]">
-              <h3 className="mb-4 font-serif">Tóm tắt đơn hàng</h3>
+              <h3 className="mb-4 font-serif">Order Summary</h3>
 
               {/* Coupon Input */}
               <div className="mb-4 pb-4 border-b border-[var(--color-border)]">
                 <div className="flex items-center gap-2 mb-2">
                   <Tag className="w-4 h-4 text-[var(--color-primary)]" />
-                  <span className="text-sm font-medium">Mã giảm giá</span>
+                  <span className="text-sm font-medium">Coupon Code</span>
                 </div>
 
                 {appliedCoupon ? (
@@ -273,7 +273,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
                       <div>
                         <span className="text-sm font-medium text-green-700">{appliedCoupon.coupon.code}</span>
                         <p className="text-xs text-green-600">
-                          Giảm {formatPrice(appliedCoupon.discount)}
+                          Save {formatPrice(appliedCoupon.discount)}
                         </p>
                       </div>
                     </div>
@@ -290,7 +290,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
                       type="text"
                       value={couponCode}
                       onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                      placeholder="Nhập mã giảm giá"
+                      placeholder="Enter coupon code"
                       className="flex-1 px-3 py-2 text-sm border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
                     />
                     <button
@@ -301,7 +301,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
                       {couponLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        'Áp dụng'
+                        'Apply'
                       )}
                     </button>
                   </div>
@@ -315,24 +315,24 @@ export function CartPage({ onProductClick }: CartPageProps) {
               <div className="space-y-3 mb-4 pb-4 border-b border-[var(--color-border)]">
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--color-text-secondary)] text-sm">
-                    Tạm tính ({cart.item_count} sản phẩm)
+                    Subtotal ({cart.item_count} items)
                   </span>
                   <span>{formatPrice(cart.subtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--color-text-secondary)] text-sm">Phí vận chuyển</span>
-                  <span>{cart.shipping_fee === 0 ? <span className="text-[var(--color-success)]">Miễn phí</span> : formatPrice(cart.shipping_fee)}</span>
+                  <span className="text-[var(--color-text-secondary)] text-sm">Shipping</span>
+                  <span>{cart.shipping_fee === 0 ? <span className="text-[var(--color-success)]">Free</span> : formatPrice(cart.shipping_fee)}</span>
                 </div>
                 {appliedCoupon && (
                   <div className="flex items-center justify-between text-green-600">
-                    <span className="text-sm">Giảm giá ({appliedCoupon.coupon.code})</span>
+                    <span className="text-sm">Discount ({appliedCoupon.coupon.code})</span>
                     <span>-{formatPrice(appliedCoupon.discount)}</span>
                   </div>
                 )}
               </div>
 
               <div className="flex items-center justify-between mb-6">
-                <h4>Tổng cộng</h4>
+                <h4>Total</h4>
                 <h3 className="text-[var(--color-primary)] font-serif">{formatPrice(finalTotal)}</h3>
               </div>
 
@@ -340,7 +340,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
                 onClick={() => navigate('/checkout', { state: { appliedCoupon } })}
                 className="w-full py-3.5 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-hover)] transition-all shadow-[var(--shadow-md)] hover:shadow-[var(--shadow-glow)]"
               >
-                Thanh toán ngay
+                Checkout Now
               </button>
 
               {cart.subtotal < 500000 && (
@@ -348,7 +348,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
                   <div className="flex items-start gap-2">
                     <Gift className="w-4 h-4 text-[var(--color-primary)] mt-0.5 flex-shrink-0" />
                     <p className="text-xs text-[var(--color-primary)] leading-relaxed">
-                      Mua thêm <strong>{formatPrice(500000 - cart.subtotal)}</strong> để được miễn phí vận chuyển
+                      Add <strong>{formatPrice(500000 - cart.subtotal)}</strong> more for free shipping
                     </p>
                   </div>
                 </div>
@@ -363,10 +363,10 @@ export function CartPage({ onProductClick }: CartPageProps) {
                     <div className="p-2 bg-white rounded-xl shadow-sm">
                       <Zap className="w-5 h-5 text-[var(--color-secondary)]" />
                     </div>
-                    <h4 className="text-[var(--color-secondary)] font-serif">Thường được mua cùng</h4>
+                    <h4 className="text-[var(--color-secondary)] font-serif">Frequently Bought Together</h4>
                   </div>
                   <p className="text-xs text-[var(--color-text-secondary)] leading-relaxed">
-                    <strong>Cross-sell AI</strong> - Tăng giá trị đơn hàng (AOV)
+                    <strong>Cross-sell AI</strong> - Increase Average Order Value (AOV)
                   </p>
                 </div>
 
@@ -407,7 +407,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
                             className="flex items-center gap-1 px-3 py-1.5 bg-[var(--color-primary)] text-white rounded-full text-xs hover:bg-[var(--color-primary-hover)] transition-all shadow-sm disabled:opacity-50"
                           >
                             <Plus className="w-3 h-3" />
-                            Thêm
+                            Add
                           </button>
                         </div>
                       </div>
@@ -421,13 +421,13 @@ export function CartPage({ onProductClick }: CartPageProps) {
 
         {/* Tech Info */}
         <div className="bg-white rounded-2xl border border-[var(--color-border)] p-6 mt-6 shadow-[var(--shadow-sm)]">
-          <h3 className="mb-3 font-serif">Về tính năng Cross-sell</h3>
+          <h3 className="mb-3 font-serif">About Cross-sell Feature</h3>
           <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-            Hệ thống phân tích các sản phẩm trong giỏ hàng và đề xuất các sản phẩm bổ sung dựa trên:
-            <strong> (1)</strong> Pattern mua hàng từ lịch sử đơn hàng trong Amazon All_Beauty dataset,
-            <strong> (2)</strong> Mối quan hệ <code className="px-2 py-0.5 bg-gray-100 rounded text-xs">FREQUENTLY_BOUGHT_WITH</code> trong Knowledge Graph (Neo4j),
-            <strong> (3)</strong> Phân tích sản phẩm bổ trợ (ví dụ: son môi → chì kẻ viền môi).
-            Mục tiêu tăng AOV (Average Order Value) thông qua gợi ý thông minh theo thời gian thực.
+            The system analyzes products in your cart and suggests complementary products based on:
+            <strong> (1)</strong> Purchase patterns from order history in Amazon All_Beauty dataset,
+            <strong> (2)</strong> <code className="px-2 py-0.5 bg-gray-100 rounded text-xs">FREQUENTLY_BOUGHT_WITH</code> relationships in Knowledge Graph (Neo4j),
+            <strong> (3)</strong> Complementary product analysis (e.g., lipstick → lip liner).
+            Goal: increase AOV (Average Order Value) through real-time smart recommendations.
           </p>
         </div>
       </div>

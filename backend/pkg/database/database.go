@@ -1,10 +1,11 @@
 package database
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/florus/backend/internal/config"
-	"gorm.io/driver/sqlite"
+	oracle "github.com/dzwvip/gorm-oracle"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -14,26 +15,31 @@ var DB *gorm.DB
 func Connect(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 	var err error
 
-	// Using SQLite for development (easy setup)
-	// For production with Oracle, use: gorm.io/driver/oracle
-	// Added busy_timeout and WAL mode for better concurrency
-	DB, err = gorm.Open(sqlite.Open("florus.db?_busy_timeout=5000&_journal_mode=WAL"), &gorm.Config{
+	// Oracle connection string format for go-ora:
+	// oracle://user:password@host:port/service_name
+	dsn := fmt.Sprintf("oracle://%s:%s@%s:%s/%s",
+		cfg.User,
+		cfg.Password,
+		cfg.Host,
+		cfg.Port,
+		cfg.Service,
+	)
+
+	DB, err = gorm.Open(oracle.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Printf("Failed to connect to Oracle database: %v", err)
 		return nil, err
 	}
 
-	// Configure connection pool for SQLite
-	sqlDB, err := DB.DB()
-	if err != nil {
-		return nil, err
-	}
-	sqlDB.SetMaxOpenConns(1) // SQLite only supports one writer
+	// Set connection pool
+	sqlDB, _ := DB.DB()
+	sqlDB.SetMaxOpenConns(10)
+	sqlDB.SetMaxIdleConns(5)
 
-	log.Println("Database connected successfully")
+	log.Println("Oracle database connected successfully")
 	return DB, nil
 }
 

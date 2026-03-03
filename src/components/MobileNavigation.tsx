@@ -8,10 +8,10 @@ interface MobileNavigationProps {
 
 export function MobileNavigation({ currentPage, onNavigate, cartCount }: MobileNavigationProps) {
   const navItems = [
-    { id: 'home' as const, icon: Home, label: 'Trang chủ' },
-    { id: 'categories' as const, icon: Grid, label: 'Danh mục' },
-    { id: 'cart' as const, icon: ShoppingCart, label: 'Giỏ hàng', badge: cartCount },
-    { id: 'account' as const, icon: User, label: 'Tài khoản' },
+    { id: 'home' as const, icon: Home, label: 'Home' },
+    { id: 'categories' as const, icon: Grid, label: 'Categories' },
+    { id: 'cart' as const, icon: ShoppingCart, label: 'Cart', badge: cartCount },
+    { id: 'account' as const, icon: User, label: 'Account' },
   ];
 
   return (

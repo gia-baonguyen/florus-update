@@ -144,11 +144,12 @@ export const ordersApi = {
     return response.data.data;
   },
 
-  create: async (shippingAddress: string, note?: string, couponCode?: string): Promise<import('../types').Order> => {
+  create: async (shippingAddress: string, note?: string, couponCode?: string, paymentMethod?: string): Promise<import('../types').Order> => {
     const response = await api.post<import('../types').ApiResponse<import('../types').Order>>('/orders', {
       shipping_address: shippingAddress,
       note: note || '',
       coupon_code: couponCode || '',
+      payment_method: paymentMethod || 'cod',
     });
     return response.data.data;
   },

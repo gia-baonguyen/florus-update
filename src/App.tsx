@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider, useCart } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
@@ -10,22 +10,179 @@ import { ProductDetailPage } from './pages/ProductDetailPage';
 import { CartPage } from './pages/CartPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { OrderHistoryPage } from './pages/OrderHistoryPage';
+import { OrderDetailPage } from './pages/OrderDetailPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { WishlistPage } from './pages/WishlistPage';
-import { CategoryPage } from './pages/CategoryPage';
+import { CategoriesListPage } from './pages/CategoriesListPage';
+import { ProductsPage } from './pages/ProductsPage';
+import { PaymentResultPage } from './pages/PaymentResultPage';
 
 // Admin imports
 import { AdminLayout } from './components/admin/AdminLayout';
 import { DashboardPage } from './pages/admin/DashboardPage';
 import { OrdersPage as AdminOrdersPage } from './pages/admin/OrdersPage';
 import { UsersPage } from './pages/admin/UsersPage';
-import { ProductsPage } from './pages/admin/ProductsPage';
-import { CategoriesPage } from './pages/admin/CategoriesPage';
+import { ProductsPage as AdminProductsPage } from './pages/admin/ProductsPage';
+import { CategoriesPage as AdminCategoriesPage } from './pages/admin/CategoriesPage';
 import { CouponsPage } from './pages/admin/CouponsPage';
 
 type Page = 'home' | 'product' | 'cart' | 'categories' | 'account';
+
+// Wrapper component for CartPage with proper navigation
+function CartPageWrapper() {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { cart } = useCart();
+  const totalCartItems = cart?.item_count || 0;
+
+  return (
+    <div className="min-h-screen bg-[var(--color-surface-warm)]">
+      <Header
+        cartCount={totalCartItems}
+        onCartClick={() => {}} // Already on cart page
+        onLogoClick={() => navigate('/')}
+        user={user}
+        onLogout={logout}
+        onProductClick={(id) => navigate(`/product/${id}`)}
+      />
+      <CartPage onProductClick={(id) => navigate(`/product/${id}`)} />
+      <MobileNavigation
+        currentPage="cart"
+        onNavigate={(page) => {
+          if (page === 'home') navigate('/');
+          else if (page === 'cart') {} // Already here
+          else if (page === 'categories') navigate('/categories');
+          else if (page === 'account') navigate('/profile');
+        }}
+        cartCount={totalCartItems}
+      />
+    </div>
+  );
+}
+
+// Wrapper component for CategoriesListPage
+function CategoriesListPageWrapper() {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { cart } = useCart();
+  const totalCartItems = cart?.item_count || 0;
+
+  return (
+    <div className="min-h-screen bg-[var(--color-surface-warm)]">
+      <Header
+        cartCount={totalCartItems}
+        onCartClick={() => navigate('/cart')}
+        onLogoClick={() => navigate('/')}
+        user={user}
+        onLogout={logout}
+        onProductClick={(id) => navigate(`/product/${id}`)}
+      />
+      <CategoriesListPage />
+      <MobileNavigation
+        currentPage="categories"
+        onNavigate={(page) => {
+          if (page === 'home') navigate('/');
+          else if (page === 'cart') navigate('/cart');
+          else if (page === 'categories') navigate('/categories');
+          else if (page === 'account') navigate('/profile');
+        }}
+        cartCount={totalCartItems}
+      />
+    </div>
+  );
+}
+
+// Wrapper component for ProductsPage with proper navigation
+function ProductsPageWrapper() {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { cart } = useCart();
+  const totalCartItems = cart?.item_count || 0;
+
+  return (
+    <div className="min-h-screen bg-[var(--color-surface-warm)]">
+      <Header
+        cartCount={totalCartItems}
+        onCartClick={() => navigate('/cart')}
+        onLogoClick={() => navigate('/')}
+        user={user}
+        onLogout={logout}
+        onProductClick={(id) => navigate(`/product/${id}`)}
+      />
+      <ProductsPage onProductClick={(id) => navigate(`/product/${id}`)} />
+      <MobileNavigation
+        currentPage="categories"
+        onNavigate={(page) => {
+          if (page === 'home') navigate('/');
+          else if (page === 'cart') navigate('/cart');
+          else if (page === 'categories') navigate('/categories');
+          else if (page === 'account') navigate('/profile');
+        }}
+        cartCount={totalCartItems}
+      />
+    </div>
+  );
+}
+
+// Wrapper component for ProductDetailPage with URL params
+function ProductDetailPageWrapper() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { addItem, cart } = useCart();
+  const { isAuthenticated, user, logout } = useAuth();
+  const totalCartItems = cart?.item_count || 0;
+
+  const handleProductClick = (productId: string) => {
+    navigate(`/product/${productId}`);
+  };
+
+  const handleAddToCart = async (productId: string) => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    try {
+      await addItem(parseInt(productId), 1);
+    } catch (err) {
+      console.error('Error adding to cart:', err);
+    }
+  };
+
+  if (!id) {
+    navigate('/');
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-[var(--color-surface-warm)]">
+      <Header
+        cartCount={totalCartItems}
+        onCartClick={() => navigate('/cart')}
+        onLogoClick={() => navigate('/')}
+        user={user}
+        onLogout={logout}
+        onProductClick={handleProductClick}
+      />
+      <ProductDetailPage
+        productId={id}
+        onProductClick={handleProductClick}
+        onAddToCart={handleAddToCart}
+      />
+      <MobileNavigation
+        currentPage="home"
+        onNavigate={(page) => {
+          if (page === 'home') navigate('/');
+          else if (page === 'cart') navigate('/cart');
+          else if (page === 'categories') navigate('/categories');
+          else if (page === 'account') navigate('/profile');
+        }}
+        cartCount={totalCartItems}
+      />
+    </div>
+  );
+}
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>('home');
@@ -147,7 +304,7 @@ function AppContent() {
           <div className="min-h-screen bg-[var(--color-surface-warm)]">
             <div className="container py-12">
               <div className="max-w-md mx-auto bg-white rounded-2xl border border-[var(--color-border)] p-6 shadow-[var(--shadow-md)]">
-                <h1 className="mb-6 font-serif">Tài khoản</h1>
+                <h1 className="mb-6 font-serif">Account</h1>
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 p-5 bg-gradient-to-br from-[var(--color-primary-light)] to-pink-50 rounded-xl border border-[var(--color-primary)]/20">
                     <div className="w-16 h-16 bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-rose-gold)] rounded-full flex items-center justify-center text-white shadow-[var(--shadow-md)]">
@@ -179,19 +336,19 @@ function AppContent() {
                       onClick={() => navigate('/orders')}
                       className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface)] rounded-xl transition-colors"
                     >
-                      Đơn hàng của tôi
+                      My Orders
                     </button>
                     <button
                       onClick={() => navigate('/wishlist')}
                       className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface)] rounded-xl transition-colors"
                     >
-                      Sản phẩm yêu thích
+                      Wishlist
                     </button>
                     <button
                       onClick={() => navigate('/profile')}
                       className="w-full text-left px-4 py-3 hover:bg-[var(--color-surface)] rounded-xl transition-colors"
                     >
-                      Cài đặt tài khoản
+                      Account Settings
                     </button>
                   </div>
 
@@ -201,17 +358,17 @@ function AppContent() {
                         ? 'bg-green-50 border-green-200'
                         : 'bg-gray-50 border-gray-200'
                     }`}>
-                      <h4 className={user?.user_status === 'warm' ? 'text-green-700' : 'text-gray-700'}>Trạng thái AI</h4>
+                      <h4 className={user?.user_status === 'warm' ? 'text-green-700' : 'text-gray-700'}>AI Status</h4>
                       <p className="text-xs text-[var(--color-text-secondary)] mt-2 leading-relaxed">
                         {user?.user_status === 'warm' ? (
                           <>
                             <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                            <strong>Warm User</strong> - Nhận gợi ý cá nhân hóa từ AI Model
+                            <strong>Warm User</strong> - Receiving personalized recommendations from AI Model
                           </>
                         ) : (
                           <>
                             <span className="inline-block w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
-                            <strong>Cold User</strong> - Nhận gợi ý phổ biến từ Popular Engine
+                            <strong>Cold User</strong> - Receiving popular recommendations from Popular Engine
                           </>
                         )}
                       </p>
@@ -222,7 +379,7 @@ function AppContent() {
                     onClick={logout}
                     className="w-full py-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium"
                   >
-                    Đăng xuất
+                    Sign Out
                   </button>
                 </div>
               </div>
@@ -245,7 +402,7 @@ function AppContent() {
             onClick={() => selectedProductId && handleAddToCart(selectedProductId)}
             className="w-full py-3.5 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-hover)] transition-all shadow-[var(--shadow-md)]"
           >
-            Thêm vào giỏ hàng
+            Add to Cart
           </button>
         </div>
       )}
@@ -263,19 +420,23 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/payment/result" element={<PaymentResultPage />} />
             <Route path="/orders" element={<OrderHistoryPage />} />
+            <Route path="/orders/:id" element={<OrderDetailPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/wishlist" element={<WishlistPage />} />
-            <Route path="/categories" element={<CategoryPage onProductClick={(id) => window.location.href = `/?product=${id}`} />} />
-            <Route path="/categories/:categoryId" element={<CategoryPage onProductClick={(id) => window.location.href = `/?product=${id}`} />} />
+            <Route path="/cart" element={<CartPageWrapper />} />
+            <Route path="/product/:id" element={<ProductDetailPageWrapper />} />
+            <Route path="/products" element={<ProductsPageWrapper />} />
+            <Route path="/categories" element={<CategoriesListPageWrapper />} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="orders" element={<AdminOrdersPage />} />
               <Route path="users" element={<UsersPage />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="categories" element={<CategoriesPage />} />
+              <Route path="products" element={<AdminProductsPage />} />
+              <Route path="categories" element={<AdminCategoriesPage />} />
               <Route path="coupons" element={<CouponsPage />} />
             </Route>
 

@@ -1,11 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, FileText, Loader2, ShoppingBag, Check, ArrowLeft, Truck, CreditCard, Tag, X } from 'lucide-react';
+import { MapPin, FileText, Loader2, ShoppingBag, Check, ArrowLeft, Truck, CreditCard, Tag, X, Wallet, Banknote } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { ordersApi } from '../api/products';
 import { couponsApi, ValidateCouponResponse } from '../api/coupons';
+import { paymentsApi, PaymentMethod } from '../api/payments';
 import { ProductImage } from '../components/ProductImage';
+
+const paymentMethods = [
+  { id: 'cod' as PaymentMethod, name: 'Cash on Delivery', icon: Banknote, description: 'Pay when you receive' },
+  { id: 'zalopay' as PaymentMethod, name: 'ZaloPay', icon: Wallet, description: 'Pay with ZaloPay e-wallet' },
+  { id: 'momo' as PaymentMethod, name: 'MoMo', icon: Wallet, description: 'Pay with MoMo e-wallet' },
+  { id: 'vnpay' as PaymentMethod, name: 'VNPay', icon: CreditCard, description: 'Pay with bank card via VNPay' },
+];
 
 export function CheckoutPage() {
   const navigate = useNavigate();
@@ -13,6 +21,7 @@ export function CheckoutPage() {
   const { isAuthenticated } = useAuth();
   const [shippingAddress, setShippingAddress] = useState('');
   const [note, setNote] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('cod');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderSuccess, setOrderSuccess] = useState<{ orderCode: string; orderId: number } | null>(null);
@@ -24,15 +33,15 @@ export function CheckoutPage() {
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'VND',
-    }).format(price);
+      currency: 'USD',
+    }).format(price / 1000);
   };
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
-      setCouponError('Vui lòng nhập mã giảm giá');
+      setCouponError('Please enter a coupon code');
       return;
     }
 
@@ -44,7 +53,7 @@ export function CheckoutPage() {
       setAppliedCoupon(result);
       setCouponError(null);
     } catch (err: any) {
-      setCouponError(err.response?.data?.message || 'Mã giảm giá không hợp lệ');
+      setCouponError(err.response?.data?.message || 'Invalid coupon code');
       setAppliedCoupon(null);
     } finally {
       setIsApplyingCoupon(false);
@@ -65,7 +74,7 @@ export function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!shippingAddress.trim()) {
-      setError('Vui lòng nhập địa chỉ giao hàng');
+      setError('Please enter a shipping address');
       return;
     }
 
@@ -76,13 +85,32 @@ export function CheckoutPage() {
       const order = await ordersApi.create(
         shippingAddress,
         note,
-        appliedCoupon?.coupon.code
+        appliedCoupon?.coupon.code,
+        selectedPaymentMethod
       );
+
+      // If online payment method, redirect to payment gateway
+      if (selectedPaymentMethod !== 'cod') {
+        try {
+          const paymentResponse = await paymentsApi.createPayment({
+            order_code: order.order_code,
+            payment_method: selectedPaymentMethod,
+          });
+          // Redirect to payment gateway
+          window.location.href = paymentResponse.payment_url;
+          return;
+        } catch (paymentErr: any) {
+          console.error('Error creating payment:', paymentErr);
+          // Order created but payment failed - still show success for COD fallback
+          setError('Payment gateway unavailable. Your order has been placed as Cash on Delivery.');
+        }
+      }
+
       setOrderSuccess({ orderCode: order.order_code, orderId: order.id });
       await refreshCart();
     } catch (err: any) {
       console.error('Error creating order:', err);
-      setError(err.response?.data?.message || 'Có lỗi xảy ra khi đặt hàng');
+      setError(err.response?.data?.message || 'An error occurred while placing the order');
     } finally {
       setIsSubmitting(false);
     }
@@ -97,15 +125,15 @@ export function CheckoutPage() {
             <div className="w-20 h-20 mx-auto mb-4 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center">
               <ShoppingBag className="w-10 h-10 text-[var(--color-primary)]" />
             </div>
-            <h2 className="mb-2 font-serif">Vui lòng đăng nhập</h2>
+            <h2 className="mb-2 font-serif">Please Sign In</h2>
             <p className="text-[var(--color-text-secondary)] mb-6">
-              Đăng nhập để tiến hành thanh toán
+              Sign in to proceed with checkout
             </p>
             <button
               onClick={() => navigate('/login')}
               className="px-8 py-3 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)] transition-colors"
             >
-              Đăng nhập
+              Sign In
             </button>
           </div>
         </div>
@@ -122,25 +150,25 @@ export function CheckoutPage() {
             <div className="w-20 h-20 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
               <Check className="w-10 h-10 text-green-600" />
             </div>
-            <h2 className="mb-2 font-serif text-green-700">Đặt hàng thành công!</h2>
+            <h2 className="mb-2 font-serif text-green-700">Order Placed Successfully!</h2>
             <p className="text-[var(--color-text-secondary)] mb-2">
-              Cảm ơn bạn đã mua hàng tại Florus Beauty
+              Thank you for shopping at Florus Beauty
             </p>
             <p className="text-lg font-medium mb-6">
-              Mã đơn hàng: <span className="text-[var(--color-primary)]">{orderSuccess.orderCode}</span>
+              Order Code: <span className="text-[var(--color-primary)]">{orderSuccess.orderCode}</span>
             </p>
             <div className="flex flex-col gap-3">
               <button
                 onClick={() => navigate('/orders')}
                 className="w-full px-6 py-3 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)] transition-colors"
               >
-                Xem đơn hàng
+                View Orders
               </button>
               <button
                 onClick={() => navigate('/')}
                 className="w-full px-6 py-3 border-2 border-[var(--color-border)] rounded-full hover:border-[var(--color-primary)] transition-colors"
               >
-                Tiếp tục mua sắm
+                Continue Shopping
               </button>
             </div>
           </div>
@@ -155,7 +183,7 @@ export function CheckoutPage() {
       <div className="min-h-screen bg-[var(--color-surface-warm)] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-10 h-10 text-[var(--color-primary)] animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">Đang tải...</p>
+          <p className="text-gray-500">Loading...</p>
         </div>
       </div>
     );
@@ -170,15 +198,15 @@ export function CheckoutPage() {
             <div className="w-20 h-20 mx-auto mb-4 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center">
               <ShoppingBag className="w-10 h-10 text-[var(--color-primary)]" />
             </div>
-            <h2 className="mb-2 font-serif">Giỏ hàng trống</h2>
+            <h2 className="mb-2 font-serif">Your Cart is Empty</h2>
             <p className="text-[var(--color-text-secondary)] mb-6">
-              Vui lòng thêm sản phẩm vào giỏ hàng trước khi thanh toán
+              Please add products to your cart before checkout
             </p>
             <button
               onClick={() => navigate('/')}
               className="px-8 py-3 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)] transition-colors"
             >
-              Tiếp tục mua sắm
+              Continue Shopping
             </button>
           </div>
         </div>
@@ -195,10 +223,10 @@ export function CheckoutPage() {
           className="flex items-center gap-2 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors mb-6"
         >
           <ArrowLeft className="w-5 h-5" />
-          Quay lại
+          Go Back
         </button>
 
-        <h1 className="mb-6 font-serif">Thanh toán</h1>
+        <h1 className="mb-6 font-serif">Checkout</h1>
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Checkout Form - Left Column */}
@@ -209,12 +237,12 @@ export function CheckoutPage() {
                 <div className="p-2 bg-[var(--color-primary-light)] rounded-xl">
                   <MapPin className="w-5 h-5 text-[var(--color-primary)]" />
                 </div>
-                <h3 className="font-serif">Địa chỉ giao hàng</h3>
+                <h3 className="font-serif">Shipping Address</h3>
               </div>
               <textarea
                 value={shippingAddress}
                 onChange={(e) => setShippingAddress(e.target.value)}
-                placeholder="Nhập địa chỉ giao hàng đầy đủ (Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố)"
+                placeholder="Enter your full shipping address (Street, City, State, ZIP Code)"
                 autoComplete="street-address"
                 className="w-full p-4 border-2 border-[var(--color-border)] rounded-xl focus:outline-none focus:border-[var(--color-primary)] resize-none transition-colors"
                 rows={3}
@@ -228,12 +256,12 @@ export function CheckoutPage() {
                 <div className="p-2 bg-amber-100 rounded-xl">
                   <FileText className="w-5 h-5 text-amber-600" />
                 </div>
-                <h3 className="font-serif">Ghi chú</h3>
+                <h3 className="font-serif">Note</h3>
               </div>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Ghi chú cho đơn hàng (không bắt buộc)"
+                placeholder="Order notes (optional)"
                 className="w-full p-4 border-2 border-[var(--color-border)] rounded-xl focus:outline-none focus:border-[var(--color-primary)] resize-none transition-colors"
                 rows={2}
               />
@@ -245,7 +273,7 @@ export function CheckoutPage() {
                 <div className="p-2 bg-green-100 rounded-xl">
                   <Tag className="w-5 h-5 text-green-600" />
                 </div>
-                <h3 className="font-serif">Mã giảm giá</h3>
+                <h3 className="font-serif">Coupon Code</h3>
               </div>
 
               {appliedCoupon ? (
@@ -259,20 +287,20 @@ export function CheckoutPage() {
                       </div>
                       <p className="text-sm text-green-600">
                         {appliedCoupon.coupon.discount_type === 'percent'
-                          ? `Giảm ${appliedCoupon.coupon.discount_value}%`
-                          : `Giảm ${formatPrice(appliedCoupon.coupon.discount_value)}`}
+                          ? `${appliedCoupon.coupon.discount_value}% off`
+                          : `${formatPrice(appliedCoupon.coupon.discount_value)} off`}
                         {appliedCoupon.coupon.max_discount_amount > 0 &&
                           appliedCoupon.coupon.discount_type === 'percent' &&
-                          ` (tối đa ${formatPrice(appliedCoupon.coupon.max_discount_amount)})`}
+                          ` (max ${formatPrice(appliedCoupon.coupon.max_discount_amount)})`}
                       </p>
                       <p className="text-sm font-medium text-green-700 mt-1">
-                        Bạn tiết kiệm được: {formatPrice(appliedCoupon.discount)}
+                        You save: {formatPrice(appliedCoupon.discount)}
                       </p>
                     </div>
                     <button
                       onClick={handleRemoveCoupon}
                       className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                      title="Xóa mã giảm giá"
+                      title="Remove coupon"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -289,7 +317,7 @@ export function CheckoutPage() {
                         setCouponCode(e.target.value.toUpperCase());
                         setCouponError(null);
                       }}
-                      placeholder="Nhập mã giảm giá"
+                      placeholder="Enter coupon code"
                       className="flex-1 p-3 border-2 border-[var(--color-border)] rounded-xl focus:outline-none focus:border-[var(--color-primary)] transition-colors uppercase"
                     />
                     <button
@@ -300,7 +328,7 @@ export function CheckoutPage() {
                       {isApplyingCoupon ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        'Áp dụng'
+                        'Apply'
                       )}
                     </button>
                   </div>
@@ -311,13 +339,58 @@ export function CheckoutPage() {
               )}
             </div>
 
+            {/* Payment Method Selection */}
+            <div className="bg-white rounded-xl border border-[var(--color-border)] p-6 shadow-[var(--shadow-sm)]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-purple-100 rounded-xl">
+                  <CreditCard className="w-5 h-5 text-purple-600" />
+                </div>
+                <h3 className="font-serif">Payment Method</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {paymentMethods.map((method) => {
+                  const Icon = method.icon;
+                  const isSelected = selectedPaymentMethod === method.id;
+                  return (
+                    <button
+                      key={method.id}
+                      type="button"
+                      onClick={() => setSelectedPaymentMethod(method.id)}
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        isSelected
+                          ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)]'
+                          : 'border-[var(--color-border)] hover:border-[var(--color-primary-light)]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${
+                          isSelected ? 'bg-[var(--color-primary)] text-white' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className={`font-medium ${isSelected ? 'text-[var(--color-primary)]' : ''}`}>
+                            {method.name}
+                          </p>
+                          <p className="text-xs text-[var(--color-text-muted)]">{method.description}</p>
+                        </div>
+                        {isSelected && (
+                          <Check className="w-5 h-5 text-[var(--color-primary)] ml-auto" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Cart Items Summary */}
             <div className="bg-white rounded-xl border border-[var(--color-border)] p-6 shadow-[var(--shadow-sm)]">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-blue-100 rounded-xl">
                   <ShoppingBag className="w-5 h-5 text-blue-600" />
                 </div>
-                <h3 className="font-serif">Sản phẩm ({cart.item_count})</h3>
+                <h3 className="font-serif">Products ({cart.item_count})</h3>
               </div>
               <div className="space-y-3">
                 {cart.items.map((item) => (
@@ -343,12 +416,12 @@ export function CheckoutPage() {
               <div className="flex items-start gap-3">
                 <Truck className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <h4 className="text-blue-700 mb-1">Thông tin vận chuyển</h4>
+                  <h4 className="text-blue-700 mb-1">Shipping Information</h4>
                   <p className="text-sm text-blue-600 leading-relaxed">
-                    Đơn hàng sẽ được xử lý trong 1-2 ngày làm việc.
+                    Orders will be processed within 1-2 business days.
                     {cart.shipping_fee === 0
-                      ? ' Miễn phí vận chuyển cho đơn hàng từ 500.000đ!'
-                      : ' Giao hàng toàn quốc trong 3-5 ngày.'}
+                      ? ' Free shipping for orders over $500!'
+                      : ' Nationwide delivery within 3-5 days.'}
                   </p>
                 </div>
               </div>
@@ -358,20 +431,20 @@ export function CheckoutPage() {
           {/* Order Summary - Right Column */}
           <div className="space-y-4">
             <div className="bg-white rounded-xl border border-[var(--color-border)] p-6 sticky top-20 shadow-[var(--shadow-sm)]">
-              <h3 className="mb-4 font-serif">Tóm tắt đơn hàng</h3>
+              <h3 className="mb-4 font-serif">Order Summary</h3>
 
               <div className="space-y-3 mb-4 pb-4 border-b border-[var(--color-border)]">
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--color-text-secondary)] text-sm">
-                    Tạm tính ({cart.item_count} sản phẩm)
+                    Subtotal ({cart.item_count} items)
                   </span>
                   <span>{formatPrice(cart.subtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--color-text-secondary)] text-sm">Phí vận chuyển</span>
+                  <span className="text-[var(--color-text-secondary)] text-sm">Shipping</span>
                   <span>
                     {cart.shipping_fee === 0 ? (
-                      <span className="text-[var(--color-success)]">Miễn phí</span>
+                      <span className="text-[var(--color-success)]">Free</span>
                     ) : (
                       formatPrice(cart.shipping_fee)
                     )}
@@ -381,7 +454,7 @@ export function CheckoutPage() {
                   <div className="flex items-center justify-between text-green-600">
                     <span className="text-sm flex items-center gap-1">
                       <Tag className="w-4 h-4" />
-                      Giảm giá ({appliedCoupon.coupon.code})
+                      Discount ({appliedCoupon.coupon.code})
                     </span>
                     <span>-{formatPrice(appliedCoupon.discount)}</span>
                   </div>
@@ -389,7 +462,7 @@ export function CheckoutPage() {
               </div>
 
               <div className="flex items-center justify-between mb-6">
-                <h4>Tổng cộng</h4>
+                <h4>Total</h4>
                 <h3 className="text-[var(--color-primary)] font-serif">{formatPrice(finalTotal)}</h3>
               </div>
 
@@ -407,18 +480,18 @@ export function CheckoutPage() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Đang xử lý...
+                    Processing...
                   </>
                 ) : (
                   <>
                     <CreditCard className="w-5 h-5" />
-                    Đặt hàng
+                    Place Order
                   </>
                 )}
               </button>
 
               <p className="text-xs text-center text-[var(--color-text-muted)] mt-4">
-                Bằng cách đặt hàng, bạn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật của chúng tôi
+                By placing an order, you agree to our Terms of Service and Privacy Policy
               </p>
             </div>
           </div>

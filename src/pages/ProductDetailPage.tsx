@@ -62,7 +62,7 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
         setCoViewedProducts(coViewed);
       } catch (err) {
         console.error('Error fetching product:', err);
-        setError('Không thể tải thông tin sản phẩm.');
+        setError('Unable to load product information.');
       } finally {
         setLoading(false);
       }
@@ -78,7 +78,7 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
       <div className="min-h-screen bg-[var(--color-surface-warm)] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-10 h-10 text-[var(--color-primary)] animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">Đang tải sản phẩm...</p>
+          <p className="text-gray-500">Loading product...</p>
         </div>
       </div>
     );
@@ -91,13 +91,13 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">😢</span>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Không tìm thấy sản phẩm</h3>
-          <p className="text-gray-500 mb-4">{error || 'Sản phẩm này không tồn tại hoặc đã bị xóa.'}</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Product Not Found</h3>
+          <p className="text-gray-500 mb-4">{error || 'This product does not exist or has been removed.'}</p>
           <button
             onClick={() => window.history.back()}
             className="px-6 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary-dark)] transition-colors"
           >
-            Quay lại
+            Go Back
           </button>
         </div>
       </div>
@@ -105,10 +105,10 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
   }
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'VND',
-    }).format(price);
+      currency: 'USD',
+    }).format(price / 1000);
   };
 
   const discountPercent = product.original_price
@@ -119,6 +119,18 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
     for (let i = 0; i < quantity; i++) {
       onAddToCart(product.id.toString());
     }
+  };
+
+  const handleBuyNow = () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    // Add to cart first, then navigate to checkout
+    for (let i = 0; i < quantity; i++) {
+      onAddToCart(product.id.toString());
+    }
+    navigate('/checkout');
   };
 
   return (
@@ -146,7 +158,7 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
                     ? 'bg-green-50 text-green-700 border border-green-200'
                     : 'bg-red-50 text-red-700 border border-red-200'
                 }`}>
-                  {product.in_stock ? '✓ Còn hàng' : '✕ Hết hàng'}
+                  {product.in_stock ? '✓ In Stock' : '✕ Out of Stock'}
                 </span>
               </div>
 
@@ -172,7 +184,7 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
                 </div>
                 <div className="h-4 w-px bg-gray-200" />
                 <p className="text-gray-600 text-sm">
-                  {product.review_count?.toLocaleString() || 0} đánh giá
+                  {product.review_count?.toLocaleString() || 0} reviews
                 </p>
               </div>
 
@@ -201,11 +213,11 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
                   <div className="flex items-start gap-2">
                     <Award className="w-5 h-5 text-[var(--color-secondary)] mt-0.5 flex-shrink-0" />
                     <div>
-                      <h4 className="text-[var(--color-secondary)] mb-1">Vì sao chọn sản phẩm này?</h4>
+                      <h4 className="text-[var(--color-secondary)] mb-1">Why Choose This Product?</h4>
                       <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-                        Sản phẩm có điểm AI <strong>{product.ai_score}</strong>/100 - được đánh giá cao bởi hệ thống gợi ý thông minh.
+                        This product has an AI score of <strong>{product.ai_score}</strong>/100 - highly rated by our smart recommendation system.
                         {product.ai_recommend_type && (
-                          <> Loại gợi ý: <strong>{product.ai_recommend_type}</strong>.</>
+                          <> Recommendation type: <strong>{product.ai_recommend_type}</strong>.</>
                         )}
                       </p>
                     </div>
@@ -215,7 +227,7 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
 
               {/* Description */}
               <div className="mb-6">
-                <h4 className="mb-3">Mô tả sản phẩm</h4>
+                <h4 className="mb-3">Product Description</h4>
                 <p className="text-[var(--color-text-secondary)] leading-relaxed">
                   {product.description}
                 </p>
@@ -240,7 +252,7 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
               {/* Ingredients */}
               {product.ingredients && product.ingredients.length > 0 && (
                 <div className="mb-6">
-                  <h4 className="mb-3">Thành phần chính</h4>
+                  <h4 className="mb-3">Key Ingredients</h4>
                   <div className="flex flex-wrap gap-2">
                     {product.ingredients.slice(0, 5).map((ingredient) => (
                       <span
@@ -256,7 +268,7 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
 
               {/* Quantity Selector */}
               <div className="mb-6">
-                <h4 className="mb-3">Số lượng</h4>
+                <h4 className="mb-3">Quantity</h4>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -271,7 +283,7 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
                   >
                     +
                   </button>
-                  <span className="text-sm text-gray-500">({product.stock} sản phẩm có sẵn)</span>
+                  <span className="text-sm text-gray-500">({product.stock} items available)</span>
                 </div>
               </div>
 
@@ -283,13 +295,14 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
                   className="flex-1 flex items-center justify-center gap-2 px-6 py-3.5 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ShoppingCart className="w-5 h-5" />
-                  Thêm vào giỏ
+                  Add to Cart
                 </button>
                 <button
+                  onClick={handleBuyNow}
                   disabled={!product.in_stock}
                   className="flex-1 px-6 py-3.5 bg-gray-900 text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Mua ngay
+                  Buy Now
                 </button>
               </div>
 
@@ -304,11 +317,11 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
                   }`}
                 >
                   <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current' : ''}`} />
-                  {isWishlisted ? 'Đã yêu thích' : 'Yêu thích'}
+                  {isWishlisted ? 'Wishlisted' : 'Wishlist'}
                 </button>
                 <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-gray-200 rounded-lg hover:bg-gray-50 transition-all">
                   <Share2 className="w-4 h-4" />
-                  Chia sẻ
+                  Share
                 </button>
               </div>
             </div>
@@ -328,17 +341,17 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
                 <div className="p-2 bg-white rounded-xl shadow-sm">
                   <Sparkles className="w-5 h-5 text-[var(--color-primary)]" />
                 </div>
-                <h3 className="text-[var(--color-primary)] font-serif">Sản phẩm tương tự</h3>
+                <h3 className="text-[var(--color-primary)] font-serif">Similar Products</h3>
               </div>
               <p className="text-[var(--color-text-secondary)] text-sm leading-relaxed">
-                <strong>Content-based filtering</strong> - Dựa trên đặc điểm sản phẩm như thương hiệu,
-                loại hình và khoảng giá để tìm sản phẩm phù hợp với bạn.
+                <strong>Content-based filtering</strong> - Based on product features like brand,
+                type and price range to find products that suit you.
               </p>
             </div>
 
             <ProductCarousel
-              title="Bạn có thể thích"
-              subtitle="Sản phẩm cùng loại và mục đích sử dụng"
+              title="You May Also Like"
+              subtitle="Products with similar type and purpose"
               products={similarProducts}
               onProductClick={(id) => onProductClick(id.toString())}
             />
@@ -353,17 +366,17 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
                 <div className="p-2 bg-white rounded-xl shadow-sm">
                   <Users className="w-5 h-5 text-purple-600" />
                 </div>
-                <h3 className="text-purple-600 font-serif">Hoàn thiện bộ trang điểm</h3>
+                <h3 className="text-purple-600 font-serif">Complete Your Beauty Set</h3>
               </div>
               <p className="text-[var(--color-text-secondary)] text-sm leading-relaxed">
-                <strong>Collaborative filtering</strong> - Dựa trên mối quan hệ <code className="px-2 py-0.5 bg-purple-100 rounded text-xs">CO_VIEWED</code> trong
-                Knowledge Graph (Neo4j) để tìm sản phẩm được khách hàng khác quan tâm cùng.
+                <strong>Collaborative filtering</strong> - Based on <code className="px-2 py-0.5 bg-purple-100 rounded text-xs">CO_VIEWED</code> relationships in
+                Knowledge Graph (Neo4j) to find products other customers are also interested in.
               </p>
             </div>
 
             <ProductCarousel
-              title="Thường được xem cùng"
-              subtitle="Sản phẩm được khách hàng khác quan tâm"
+              title="Frequently Viewed Together"
+              subtitle="Products other customers are interested in"
               products={coViewedProducts}
               onProductClick={(id) => onProductClick(id.toString())}
             />
@@ -372,24 +385,24 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
 
         {/* Tech Explanation */}
         <div className="bg-white rounded-2xl border border-[var(--color-border)] p-6 shadow-[var(--shadow-sm)]">
-          <h3 className="mb-4 font-serif">Công nghệ gợi ý (Knowledge Graph)</h3>
+          <h3 className="mb-4 font-serif">Recommendation Technology (Knowledge Graph)</h3>
           <div className="grid md:grid-cols-3 gap-4">
             <div className="p-5 bg-[var(--color-surface-warm)] rounded-xl border border-[var(--color-border)]">
               <h4 className="text-[var(--color-text-primary)] mb-2">Content-based</h4>
               <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-                Phân tích đặc điểm sản phẩm như category, brand, price range để tìm sản phẩm tương tự.
+                Analyzes product features like category, brand, price range to find similar products.
               </p>
             </div>
             <div className="p-5 bg-[var(--color-surface-warm)] rounded-xl border border-[var(--color-border)]">
               <h4 className="text-[var(--color-text-primary)] mb-2">Collaborative</h4>
               <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-                Sử dụng mối quan hệ CO_VIEWED trong Neo4j Graph Database để tìm pattern xem sản phẩm.
+                Uses CO_VIEWED relationships in Neo4j Graph Database to find product viewing patterns.
               </p>
             </div>
             <div className="p-5 bg-[var(--color-surface-warm)] rounded-xl border border-[var(--color-border)]">
               <h4 className="text-[var(--color-text-primary)] mb-2">Real-time</h4>
               <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-                Cập nhật gợi ý theo thời gian thực dựa trên hành vi người dùng mới nhất.
+                Updates recommendations in real-time based on latest user behavior.
               </p>
             </div>
           </div>

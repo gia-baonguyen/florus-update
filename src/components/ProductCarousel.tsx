@@ -103,7 +103,7 @@ export function ProductCarousel({
       {/* Mobile scroll hint */}
       <div className="md:hidden mt-4 flex justify-center">
         <p className="text-xs text-[var(--color-text-muted)] italic">
-          ← Vuốt để xem thêm →
+          ← Swipe to see more →
         </p>
       </div>
     </div>

@@ -40,6 +40,7 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	}
 
 	authService := service.NewAuthService(userRepo, jwtConfig)
+	googleAuthService := service.NewGoogleAuthService(userRepo, jwtConfig, cfg.Google)
 	categoryService := service.NewCategoryService(categoryRepo)
 	productService := service.NewProductService(productRepo, categoryRepo)
 	cartService := service.NewCartService(cartRepo, productRepo)
@@ -49,10 +50,11 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	adminService := service.NewAdminService(db)
 	wishlistService := service.NewWishlistService(wishlistRepo, productRepo)
 	reviewService := service.NewReviewService(reviewRepo, productRepo)
+	paymentService := service.NewPaymentService(db, orderRepo, cfg.Payment)
 
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler()
-	authHandler := handler.NewAuthHandler(authService)
+	authHandler := handler.NewAuthHandler(authService, googleAuthService)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 	productHandler := handler.NewProductHandler(productService)
 	cartHandler := handler.NewCartHandler(cartService)
@@ -62,6 +64,7 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	wishlistHandler := handler.NewWishlistHandler(wishlistService)
 	reviewHandler := handler.NewReviewHandler(reviewService)
 	couponHandler := handler.NewCouponHandler(couponService)
+	paymentHandler := handler.NewPaymentHandler(paymentService)
 
 	// Routes
 	api := router.Group("/api")
@@ -75,6 +78,7 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
+			auth.POST("/google", authHandler.GoogleLogin)
 			auth.GET("/me", middleware.Auth(cfg.JWT.Secret), authHandler.GetMe)
 			auth.PUT("/profile", middleware.Auth(cfg.JWT.Secret), authHandler.UpdateProfile)
 			auth.PUT("/password", middleware.Auth(cfg.JWT.Secret), authHandler.ChangePassword)
@@ -174,6 +178,19 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 		coupons := api.Group("/coupons")
 		{
 			coupons.POST("/validate", couponHandler.ValidateCoupon)
+		}
+
+		// Payment routes
+		payments := api.Group("/payments")
+		{
+			// Create payment (authenticated)
+			payments.POST("/create", middleware.Auth(cfg.JWT.Secret), paymentHandler.CreatePayment)
+			// Get payment status (authenticated)
+			payments.GET("/status/:orderCode", middleware.Auth(cfg.JWT.Secret), paymentHandler.GetPaymentStatus)
+			// Payment callbacks (public - called by payment providers)
+			payments.POST("/callback/zalopay", paymentHandler.ZaloPayCallback)
+			payments.POST("/callback/momo", paymentHandler.MoMoCallback)
+			payments.GET("/callback/vnpay", paymentHandler.VNPayCallback)
 		}
 
 		// Admin routes (admin only)

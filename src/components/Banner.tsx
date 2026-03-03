@@ -1,29 +1,31 @@
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const banners = [
   {
     id: 1,
-    title: 'Vẻ đẹp dành riêng cho bạn',
-    subtitle: 'Khám phá bộ sưu tập mới - Ưu đãi đến 40%',
+    title: 'Beauty Made for You',
+    subtitle: 'Discover our new collection - Up to 40% off',
     bgGradient: 'linear-gradient(135deg, rgba(255, 107, 107, 0.08) 0%, rgba(255, 107, 107, 0.03) 100%)',
   },
   {
     id: 2,
-    title: 'Làn da rạng rỡ mỗi ngày',
-    subtitle: 'Serum Vitamin C - Giảm giá đặc biệt',
+    title: 'Radiant Skin Every Day',
+    subtitle: 'Vitamin C Serum - Special Discount',
     bgGradient: 'linear-gradient(135deg, rgba(31, 171, 137, 0.08) 0%, rgba(31, 171, 137, 0.03) 100%)',
   },
   {
     id: 3,
-    title: 'Trang điểm hoàn hảo',
-    subtitle: 'Makeup Collection 2024 - Mua 2 tặng 1',
+    title: 'Perfect Makeup',
+    subtitle: 'Makeup Collection 2024 - Buy 2 Get 1 Free',
     bgGradient: 'linear-gradient(135deg, rgba(255, 107, 107, 0.08) 0%, rgba(31, 171, 137, 0.03) 100%)',
   },
 ];
 
 export function Banner() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const navigate = useNavigate();
   const currentBanner = banners[currentIndex];
 
   useEffect(() => {
@@ -59,8 +61,11 @@ export function Banner() {
             {currentBanner.subtitle}
           </p>
           
-          <button className="px-8 py-3.5 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-all inline-block">
-            Khám phá ngay
+          <button
+            onClick={() => navigate('/products')}
+            className="px-8 py-3.5 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-all inline-block"
+          >
+            Shop Now
           </button>
         </div>
       </div>

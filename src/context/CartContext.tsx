@@ -54,7 +54,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     } catch (err) {
       console.error('Error fetching cart:', err);
-      setError('Không thể tải giỏ hàng');
+      setError('Failed to load cart');
       setCart(null);
     } finally {
       setLoading(false);
@@ -67,7 +67,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const addItem = async (productId: number, quantity = 1) => {
     if (!isAuthenticated) {
-      throw new Error('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng');
+      throw new Error('Please login to add items to cart');
     }
 
     try {
@@ -77,7 +77,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setCart(updatedCart);
     } catch (err) {
       console.error('Error adding to cart:', err);
-      setError('Không thể thêm sản phẩm vào giỏ hàng');
+      setError('Failed to add item to cart');
       throw err;
     } finally {
       setLoading(false);
@@ -94,7 +94,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setCart(updatedCart);
     } catch (err) {
       console.error('Error updating cart:', err);
-      setError('Không thể cập nhật giỏ hàng');
+      setError('Failed to update cart');
       throw err;
     } finally {
       setLoading(false);
@@ -111,7 +111,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await refreshCart();
     } catch (err) {
       console.error('Error removing from cart:', err);
-      setError('Không thể xóa sản phẩm khỏi giỏ hàng');
+      setError('Failed to remove item from cart');
       throw err;
     } finally {
       setLoading(false);
@@ -129,7 +129,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setCrossSellProducts([]);
     } catch (err) {
       console.error('Error clearing cart:', err);
-      setError('Không thể xóa giỏ hàng');
+      setError('Failed to clear cart');
       throw err;
     } finally {
       setLoading(false);

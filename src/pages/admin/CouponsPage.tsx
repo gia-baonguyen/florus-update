@@ -59,7 +59,7 @@ export function CouponsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN');
+    return new Date(dateString).toLocaleDateString('en-US');
   };
 
   const formatDateForInput = (dateString: string) => {
@@ -68,10 +68,10 @@ export function CouponsPage() {
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'VND',
-    }).format(price);
+      currency: 'USD',
+    }).format(price / 1000);
   };
 
   const handleOpenModal = (coupon?: Coupon) => {
@@ -385,7 +385,7 @@ export function CouponsPage() {
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                   >
                     <option value="percent">Percentage (%)</option>
-                    <option value="fixed">Fixed Amount (VND)</option>
+                    <option value="fixed">Fixed Amount (USD)</option>
                   </select>
                 </div>
                 <div>

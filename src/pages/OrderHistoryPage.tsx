@@ -7,12 +7,12 @@ import { Order } from '../types';
 import { ProductImage } from '../components/ProductImage';
 
 const statusConfig: Record<string, { label: string; icon: typeof Package; color: string; bg: string }> = {
-  pending: { label: 'Chờ xác nhận', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
-  confirmed: { label: 'Đã xác nhận', icon: CheckCircle, color: 'text-blue-600', bg: 'bg-blue-100' },
-  processing: { label: 'Đang xử lý', icon: Package, color: 'text-purple-600', bg: 'bg-purple-100' },
-  shipping: { label: 'Đang giao', icon: Truck, color: 'text-cyan-600', bg: 'bg-cyan-100' },
-  delivered: { label: 'Đã giao', icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100' },
-  cancelled: { label: 'Đã hủy', icon: XCircle, color: 'text-red-600', bg: 'bg-red-100' },
+  pending: { label: 'Pending', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
+  confirmed: { label: 'Confirmed', icon: CheckCircle, color: 'text-blue-600', bg: 'bg-blue-100' },
+  processing: { label: 'Processing', icon: Package, color: 'text-purple-600', bg: 'bg-purple-100' },
+  shipping: { label: 'Shipping', icon: Truck, color: 'text-cyan-600', bg: 'bg-cyan-100' },
+  delivered: { label: 'Delivered', icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100' },
+  cancelled: { label: 'Cancelled', icon: XCircle, color: 'text-red-600', bg: 'bg-red-100' },
 };
 
 export function OrderHistoryPage() {
@@ -24,14 +24,14 @@ export function OrderHistoryPage() {
   const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'VND',
-    }).format(price);
+      currency: 'USD',
+    }).format(price / 1000);
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('vi-VN', {
+    return new Date(dateStr).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -49,7 +49,7 @@ export function OrderHistoryPage() {
         setOrders(ordersData || []);
       } catch (err) {
         console.error('Error fetching orders:', err);
-        setError('Không thể tải danh sách đơn hàng');
+        setError('Unable to load order history');
       } finally {
         setLoading(false);
       }
@@ -59,7 +59,7 @@ export function OrderHistoryPage() {
   }, [isAuthenticated]);
 
   const handleCancelOrder = async (orderId: number) => {
-    if (!confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) return;
+    if (!confirm('Are you sure you want to cancel this order?')) return;
 
     setCancellingId(orderId);
     try {
@@ -69,7 +69,7 @@ export function OrderHistoryPage() {
       ));
     } catch (err) {
       console.error('Error cancelling order:', err);
-      alert('Không thể hủy đơn hàng');
+      alert('Unable to cancel order');
     } finally {
       setCancellingId(null);
     }
@@ -84,15 +84,15 @@ export function OrderHistoryPage() {
             <div className="w-20 h-20 mx-auto mb-4 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center">
               <Package className="w-10 h-10 text-[var(--color-primary)]" />
             </div>
-            <h2 className="mb-2 font-serif">Vui lòng đăng nhập</h2>
+            <h2 className="mb-2 font-serif">Please Sign In</h2>
             <p className="text-[var(--color-text-secondary)] mb-6">
-              Đăng nhập để xem lịch sử đơn hàng
+              Sign in to view your order history
             </p>
             <button
               onClick={() => navigate('/login')}
               className="px-8 py-3 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)] transition-colors"
             >
-              Đăng nhập
+              Sign In
             </button>
           </div>
         </div>
@@ -106,7 +106,7 @@ export function OrderHistoryPage() {
       <div className="min-h-screen bg-[var(--color-surface-warm)] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-10 h-10 text-[var(--color-primary)] animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">Đang tải đơn hàng...</p>
+          <p className="text-gray-500">Loading orders...</p>
         </div>
       </div>
     );
@@ -121,13 +121,13 @@ export function OrderHistoryPage() {
             <div className="w-20 h-20 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
               <XCircle className="w-10 h-10 text-red-600" />
             </div>
-            <h2 className="mb-2 font-serif">Có lỗi xảy ra</h2>
+            <h2 className="mb-2 font-serif">An Error Occurred</h2>
             <p className="text-[var(--color-text-secondary)] mb-6">{error}</p>
             <button
               onClick={() => window.location.reload()}
               className="px-8 py-3 bg-[var(--color-primary)] text-white rounded-full"
             >
-              Thử lại
+              Try Again
             </button>
           </div>
         </div>
@@ -145,22 +145,22 @@ export function OrderHistoryPage() {
             className="flex items-center gap-2 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors mb-6"
           >
             <ArrowLeft className="w-5 h-5" />
-            Quay lại
+            Go Back
           </button>
 
           <div className="max-w-md mx-auto text-center bg-white rounded-2xl p-12 shadow-[var(--shadow-md)] border border-[var(--color-border)]">
             <div className="w-20 h-20 mx-auto mb-4 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center">
               <Package className="w-10 h-10 text-[var(--color-primary)]" />
             </div>
-            <h2 className="mb-2 font-serif">Chưa có đơn hàng</h2>
+            <h2 className="mb-2 font-serif">No Orders Yet</h2>
             <p className="text-[var(--color-text-secondary)] mb-6">
-              Bạn chưa có đơn hàng nào. Hãy bắt đầu mua sắm!
+              You don't have any orders yet. Start shopping now!
             </p>
             <button
               onClick={() => navigate('/')}
               className="px-8 py-3 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-dark)] transition-colors"
             >
-              Mua sắm ngay
+              Shop Now
             </button>
           </div>
         </div>
@@ -177,10 +177,10 @@ export function OrderHistoryPage() {
           className="flex items-center gap-2 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors mb-6"
         >
           <ArrowLeft className="w-5 h-5" />
-          Quay lại
+          Go Back
         </button>
 
-        <h1 className="mb-6 font-serif">Lịch sử đơn hàng</h1>
+        <h1 className="mb-6 font-serif">Order History</h1>
 
         <div className="space-y-4">
           {orders.map((order) => {
@@ -228,7 +228,7 @@ export function OrderHistoryPage() {
                     ))}
                     {order.items && order.items.length > 3 && (
                       <p className="text-sm text-[var(--color-text-muted)]">
-                        +{order.items.length - 3} sản phẩm khác
+                        +{order.items.length - 3} more items
                       </p>
                     )}
                   </div>
@@ -236,7 +236,7 @@ export function OrderHistoryPage() {
                   {/* Order Footer */}
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-[var(--color-border)]">
                     <div>
-                      <p className="text-sm text-[var(--color-text-muted)]">Tổng cộng</p>
+                      <p className="text-sm text-[var(--color-text-muted)]">Total</p>
                       <p className="text-lg font-serif text-[var(--color-primary)]">{formatPrice(order.total)}</p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -249,10 +249,10 @@ export function OrderHistoryPage() {
                           {cancellingId === order.id ? (
                             <>
                               <Loader2 className="w-4 h-4 animate-spin" />
-                              Đang hủy...
+                              Cancelling...
                             </>
                           ) : (
-                            'Hủy đơn'
+                            'Cancel Order'
                           )}
                         </button>
                       )}
@@ -260,7 +260,7 @@ export function OrderHistoryPage() {
                         onClick={() => navigate(`/orders/${order.id}`)}
                         className="flex items-center gap-1 px-4 py-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary-hover)] transition-colors text-sm"
                       >
-                        Chi tiết
+                        Details
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>

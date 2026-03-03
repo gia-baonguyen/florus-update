@@ -4,6 +4,7 @@ import (
 	"github.com/florus/backend/internal/models"
 	"github.com/florus/backend/pkg/utils"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type OrderRepository interface {
@@ -12,6 +13,7 @@ type OrderRepository interface {
 	FindByID(id uint) (*models.Order, error)
 	FindByUserID(userID uint, pagination utils.Pagination) ([]models.Order, int64, error)
 	FindByOrderCode(code string) (*models.Order, error)
+	Update(order *models.Order) error
 	UpdateStatus(id uint, status models.OrderStatus) error
 	GetDB() *gorm.DB
 }
@@ -77,6 +79,12 @@ func (r *orderRepository) FindByOrderCode(code string) (*models.Order, error) {
 		return nil, err
 	}
 	return &order, nil
+}
+
+func (r *orderRepository) Update(order *models.Order) error {
+	// Use Omit(clause.Associations) to prevent GORM from trying to re-insert
+	// preloaded associations (OrderItems, Products) which causes unique constraint violations
+	return r.db.Omit(clause.Associations).Save(order).Error
 }
 
 func (r *orderRepository) UpdateStatus(id uint, status models.OrderStatus) error {

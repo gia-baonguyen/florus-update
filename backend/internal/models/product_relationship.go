@@ -1,5 +1,7 @@
 package models
 
+import "database/sql/driver"
+
 type RelationshipType string
 
 const (
@@ -7,6 +9,26 @@ const (
 	RelationCoViewed           RelationshipType = "co_viewed"
 	RelationFrequentlyBought   RelationshipType = "frequently_bought_with"
 )
+
+// Value implements driver.Valuer for Oracle compatibility
+func (r RelationshipType) Value() (driver.Value, error) {
+	return string(r), nil
+}
+
+// Scan implements sql.Scanner for Oracle compatibility
+func (r *RelationshipType) Scan(value interface{}) error {
+	if value == nil {
+		*r = RelationSimilar
+		return nil
+	}
+	switch v := value.(type) {
+	case string:
+		*r = RelationshipType(v)
+	case []byte:
+		*r = RelationshipType(string(v))
+	}
+	return nil
+}
 
 type ProductRelationship struct {
 	ID               uint             `gorm:"primaryKey;autoIncrement" json:"id"`

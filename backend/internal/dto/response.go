@@ -10,24 +10,28 @@ type AuthResponse struct {
 
 // User Response
 type UserResponse struct {
-	ID         uint              `json:"id"`
-	Email      string            `json:"email"`
-	Name       string            `json:"name"`
-	Phone      string            `json:"phone,omitempty"`
-	Address    string            `json:"address,omitempty"`
-	Role       models.UserRole   `json:"role"`
-	UserStatus models.UserStatus `json:"user_status"`
+	ID           uint                `json:"id"`
+	Email        string              `json:"email"`
+	Name         string              `json:"name"`
+	Phone        string              `json:"phone,omitempty"`
+	Address      string              `json:"address,omitempty"`
+	Role         models.UserRole     `json:"role"`
+	UserStatus   models.UserStatus   `json:"user_status"`
+	AuthProvider models.AuthProvider `json:"auth_provider"`
+	AvatarURL    string              `json:"avatar_url,omitempty"`
 }
 
 func ToUserResponse(user *models.User) UserResponse {
 	return UserResponse{
-		ID:         user.ID,
-		Email:      user.Email,
-		Name:       user.Name,
-		Phone:      user.Phone,
-		Address:    user.Address,
-		Role:       user.Role,
-		UserStatus: user.UserStatus,
+		ID:           user.ID,
+		Email:        user.Email,
+		Name:         user.Name,
+		Phone:        user.Phone,
+		Address:      user.Address,
+		Role:         user.Role,
+		UserStatus:   user.UserStatus,
+		AuthProvider: user.AuthProvider,
+		AvatarURL:    user.AvatarURL,
 	}
 }
 
@@ -152,17 +156,20 @@ type CartItemResponse struct {
 
 // Order Response
 type OrderResponse struct {
-	ID              uint                `json:"id"`
-	OrderCode       string              `json:"order_code"`
-	Subtotal        float64             `json:"subtotal"`
-	ShippingFee     float64             `json:"shipping_fee"`
-	Discount        float64             `json:"discount"`
-	Total           float64             `json:"total"`
-	Status          models.OrderStatus  `json:"status"`
-	ShippingAddress string              `json:"shipping_address"`
-	Note            string              `json:"note,omitempty"`
-	Items           []OrderItemResponse `json:"items,omitempty"`
-	CreatedAt       string              `json:"created_at"`
+	ID              uint                 `json:"id"`
+	OrderCode       string               `json:"order_code"`
+	Subtotal        float64              `json:"subtotal"`
+	ShippingFee     float64              `json:"shipping_fee"`
+	Discount        float64              `json:"discount"`
+	Total           float64              `json:"total"`
+	Status          models.OrderStatus   `json:"status"`
+	PaymentMethod   models.PaymentMethod `json:"payment_method"`
+	PaymentStatus   models.PaymentStatus `json:"payment_status"`
+	ShippingAddress string               `json:"shipping_address"`
+	Note            string               `json:"note,omitempty"`
+	Items           []OrderItemResponse  `json:"items,omitempty"`
+	Payment         *PaymentResponse     `json:"payment,omitempty"`
+	CreatedAt       string               `json:"created_at"`
 }
 
 type OrderItemResponse struct {
@@ -183,6 +190,8 @@ func ToOrderResponse(order *models.Order) OrderResponse {
 		Discount:        order.Discount,
 		Total:           order.Total,
 		Status:          order.Status,
+		PaymentMethod:   order.PaymentMethod,
+		PaymentStatus:   order.PaymentStatus,
 		ShippingAddress: order.ShippingAddress,
 		Note:            order.Note,
 		CreatedAt:       order.CreatedAt.Format("2006-01-02 15:04:05"),
@@ -197,6 +206,11 @@ func ToOrderResponse(order *models.Order) OrderResponse {
 			UnitPrice:  item.UnitPrice,
 			TotalPrice: item.TotalPrice,
 		})
+	}
+
+	if order.Payment != nil {
+		payment := ToPaymentResponse(order.Payment)
+		resp.Payment = &payment
 	}
 
 	return resp
@@ -351,4 +365,45 @@ func ToReviewResponse(review *models.Review) ReviewResponse {
 		CreatedAt: review.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt: review.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
+}
+
+// Payment Response
+type PaymentResponse struct {
+	ID              uint                 `json:"id"`
+	OrderID         uint                 `json:"order_id"`
+	TransactionID   string               `json:"transaction_id"`
+	Method          models.PaymentMethod `json:"method"`
+	Amount          float64              `json:"amount"`
+	Status          models.PaymentStatus `json:"status"`
+	ProviderTransID string               `json:"provider_trans_id,omitempty"`
+	PaymentURL      string               `json:"payment_url,omitempty"`
+	ErrorMessage    string               `json:"error_message,omitempty"`
+	PaidAt          string               `json:"paid_at,omitempty"`
+	CreatedAt       string               `json:"created_at"`
+}
+
+func ToPaymentResponse(payment *models.Payment) PaymentResponse {
+	resp := PaymentResponse{
+		ID:              payment.ID,
+		OrderID:         payment.OrderID,
+		TransactionID:   payment.TransactionID,
+		Method:          payment.Method,
+		Amount:          payment.Amount,
+		Status:          payment.Status,
+		ProviderTransID: payment.ProviderTransID,
+		PaymentURL:      payment.PaymentURL,
+		ErrorMessage:    payment.ErrorMessage,
+		CreatedAt:       payment.CreatedAt.Format("2006-01-02 15:04:05"),
+	}
+	if payment.PaidAt != nil {
+		resp.PaidAt = payment.PaidAt.Format("2006-01-02 15:04:05")
+	}
+	return resp
+}
+
+// Create Payment Response (includes payment URL)
+type CreatePaymentResponse struct {
+	OrderCode  string `json:"order_code"`
+	PaymentURL string `json:"payment_url"`
+	Method     string `json:"method"`
 }

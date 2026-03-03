@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Mail, Lock, User, Sparkles } from 'lucide-react';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
 
 export const RegisterPage: React.FC = () => {
   const [name, setName] = useState('');
@@ -20,12 +21,12 @@ export const RegisterPage: React.FC = () => {
     setError('');
 
     if (password !== confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp');
+      setError('Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      setError('Mật khẩu phải có ít nhất 6 ký tự');
+      setError('Password must be at least 6 characters');
       return;
     }
 
@@ -35,7 +36,7 @@ export const RegisterPage: React.FC = () => {
       await register(name, email, password);
       navigate('/');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+      setError(err.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -54,8 +55,8 @@ export const RegisterPage: React.FC = () => {
               Florus
             </span>
           </div>
-          <h1 className="text-2xl font-serif font-bold text-gray-800">Tạo tài khoản mới</h1>
-          <p className="text-gray-500 mt-2">Tham gia cùng Florus ngay hôm nay</p>
+          <h1 className="text-2xl font-serif font-bold text-gray-800">Create New Account</h1>
+          <p className="text-gray-500 mt-2">Join Florus today</p>
         </div>
 
         {/* Register Form */}
@@ -70,7 +71,7 @@ export const RegisterPage: React.FC = () => {
             {/* Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Họ và tên
+                Full Name
               </label>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -78,7 +79,7 @@ export const RegisterPage: React.FC = () => {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Nguyễn Văn A"
+                  placeholder="John Doe"
                   className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[var(--color-primary)] focus:outline-none transition-colors"
                   required
                 />
@@ -107,7 +108,7 @@ export const RegisterPage: React.FC = () => {
             {/* Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mật khẩu
+                Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -115,7 +116,7 @@ export const RegisterPage: React.FC = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Tối thiểu 6 ký tự"
+                  placeholder="Minimum 6 characters"
                   autoComplete="new-password"
                   className="w-full pl-12 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:border-[var(--color-primary)] focus:outline-none transition-colors"
                   required
@@ -133,7 +134,7 @@ export const RegisterPage: React.FC = () => {
             {/* Confirm Password */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Xác nhận mật khẩu
+                Confirm Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -141,7 +142,7 @@ export const RegisterPage: React.FC = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Nhập lại mật khẩu"
+                  placeholder="Re-enter password"
                   autoComplete="new-password"
                   className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[var(--color-primary)] focus:outline-none transition-colors"
                   required
@@ -158,13 +159,13 @@ export const RegisterPage: React.FC = () => {
                 required
               />
               <label htmlFor="terms" className="text-sm text-gray-600">
-                Tôi đồng ý với{' '}
+                I agree to the{' '}
                 <a href="#" className="text-[var(--color-primary)] hover:underline">
-                  Điều khoản dịch vụ
+                  Terms of Service
                 </a>{' '}
-                và{' '}
+                and{' '}
                 <a href="#" className="text-[var(--color-primary)] hover:underline">
-                  Chính sách bảo mật
+                  Privacy Policy
                 </a>
               </label>
             </div>
@@ -175,15 +176,30 @@ export const RegisterPage: React.FC = () => {
               disabled={isLoading}
               className="w-full py-3.5 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-rose-gold)] text-white rounded-xl font-medium hover:opacity-90 transition-opacity disabled:opacity-50 shadow-lg"
             >
-              {isLoading ? 'Đang đăng ký...' : 'Đăng ký'}
+              {isLoading ? 'Signing up...' : 'Sign Up'}
             </button>
           </form>
 
+          {/* Divider */}
+          <div className="flex items-center gap-4 my-6">
+            <div className="flex-1 h-px bg-gray-200"></div>
+            <span className="text-sm text-gray-400">or</span>
+            <div className="flex-1 h-px bg-gray-200"></div>
+          </div>
+
+          {/* Social Login */}
+          <div className="space-y-3">
+            <GoogleSignInButton
+              onSuccess={() => navigate('/')}
+              onError={(error) => setError(error)}
+            />
+          </div>
+
           {/* Login Link */}
           <p className="text-center text-gray-600 mt-6">
-            Đã có tài khoản?{' '}
+            Already have an account?{' '}
             <Link to="/login" className="text-[var(--color-primary)] font-medium hover:underline">
-              Đăng nhập
+              Sign In
             </Link>
           </p>
         </div>

@@ -1,12 +1,15 @@
 import { Sparkles } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const banner = {
-  title: 'Vẻ đẹp dành riêng cho bạn',
-  subtitle: 'Khám phá bộ sưu tập mới - Ưu đãi đến 40%',
+  title: 'Beauty Made for You',
+  subtitle: 'Discover our new collection - Up to 40% off',
   bgGradient: 'linear-gradient(135deg, rgba(255, 107, 107, 0.08) 0%, rgba(255, 107, 107, 0.03) 100%)',
 };
 
 export function StaticBanner() {
+  const navigate = useNavigate();
+
   return (
     <div className="relative w-full h-64 md:h-80 rounded-xl overflow-hidden bg-gradient-to-br from-gray-50 to-white border border-gray-100">
       {/* Static Banner */}
@@ -24,8 +27,11 @@ export function StaticBanner() {
             {banner.subtitle}
           </p>
           
-          <button className="px-8 py-3.5 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-all inline-block">
-            Khám phá ngay
+          <button
+            onClick={() => navigate('/products')}
+            className="px-8 py-3.5 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition-all inline-block"
+          >
+            Shop Now
           </button>
         </div>
       </div>

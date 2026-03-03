@@ -12,11 +12,15 @@ import (
 )
 
 type AuthHandler struct {
-	authService service.AuthService
+	authService       service.AuthService
+	googleAuthService service.GoogleAuthService
 }
 
-func NewAuthHandler(authService service.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+func NewAuthHandler(authService service.AuthService, googleAuthService service.GoogleAuthService) *AuthHandler {
+	return &AuthHandler{
+		authService:       authService,
+		googleAuthService: googleAuthService,
+	}
 }
 
 // Register godoc
@@ -66,6 +70,38 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidCredentials) {
 			utils.Unauthorized(c, err.Error())
+			return
+		}
+		utils.InternalServerError(c, err.Error())
+		return
+	}
+
+	utils.OK(c, "Login successful", resp)
+}
+
+// GoogleLogin godoc
+// @Summary Login with Google
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body dto.GoogleLoginRequest true "Google login request"
+// @Success 200 {object} dto.AuthResponse
+// @Router /api/auth/google [post]
+func (h *AuthHandler) GoogleLogin(c *gin.Context) {
+	var req dto.GoogleLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	resp, err := h.googleAuthService.LoginWithGoogle(req.IDToken)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidGoogleToken) {
+			utils.Unauthorized(c, "Invalid Google token")
+			return
+		}
+		if errors.Is(err, service.ErrGoogleAuthFailed) {
+			utils.InternalServerError(c, "Google authentication failed")
 			return
 		}
 		utils.InternalServerError(c, err.Error())

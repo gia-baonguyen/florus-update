@@ -90,6 +90,8 @@ export interface Order {
   discount: number;
   total: number;
   status: string;
+  payment_method: 'cod' | 'zalopay' | 'momo' | 'vnpay';
+  payment_status: 'pending' | 'success' | 'failed' | 'cancelled' | 'refunded';
   shipping_address: string;
   note: string;
   items: OrderItem[];

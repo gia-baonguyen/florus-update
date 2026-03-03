@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"database/sql/driver"
+	"time"
+)
 
 type DiscountType string
 
@@ -8,6 +11,26 @@ const (
 	DiscountTypePercent DiscountType = "percent"
 	DiscountTypeFixed   DiscountType = "fixed"
 )
+
+// Value implements driver.Valuer for Oracle compatibility
+func (d DiscountType) Value() (driver.Value, error) {
+	return string(d), nil
+}
+
+// Scan implements sql.Scanner for Oracle compatibility
+func (d *DiscountType) Scan(value interface{}) error {
+	if value == nil {
+		*d = DiscountTypePercent
+		return nil
+	}
+	switch v := value.(type) {
+	case string:
+		*d = DiscountType(v)
+	case []byte:
+		*d = DiscountType(string(v))
+	}
+	return nil
+}
 
 type Coupon struct {
 	ID               uint         `gorm:"primaryKey;autoIncrement" json:"id"`
