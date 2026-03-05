@@ -68,12 +68,16 @@ func AutoMigrate(db *gorm.DB) error {
 	// Ensure orders core tables exist before payments (which has FK to orders)
 	createOrdersTable(db)
 	createOrderItemsTable(db)
+	ensureOrderExtraColumns(db)
 
 	// Create payments table manually due to Oracle constraint issues with related models
 	createPaymentsTable(db)
 
 	// Create user_events table manually
 	createUserEventsTable(db)
+
+	// Ensure loyalty-related columns exist on users
+	ensureUserLoyaltyColumns(db)
 
 	// Create reviews table manually due to Oracle constraint issues
 	createReviewsTable(db)
@@ -462,6 +466,60 @@ func createOrdersTable(db *gorm.DB) {
 	db.Exec("CREATE INDEX IDX_ORDERS_USER_ID ON orders(USER_ID)")
 	db.Exec("CREATE INDEX IDX_ORDERS_STATUS ON orders(STATUS)")
 	db.Exec("CREATE INDEX IDX_ORDERS_CREATED_AT ON orders(CREATED_AT)")
+}
+
+// ensureOrderExtraColumns makes sure new columns added later in the lifecycle
+// exist even if the orders table was created before these fields were added
+// to the GORM model.
+func ensureOrderExtraColumns(db *gorm.DB) {
+	// SHIPPING_ADDRESS_ID
+	var colCount int64
+	db.Raw("SELECT COUNT(*) FROM USER_TAB_COLUMNS WHERE TABLE_NAME = 'ORDERS' AND COLUMN_NAME = 'SHIPPING_ADDRESS_ID'").Scan(&colCount)
+	if colCount == 0 {
+		log.Println("Adding SHIPPING_ADDRESS_ID column to orders table...")
+		if err := db.Exec("ALTER TABLE orders ADD SHIPPING_ADDRESS_ID INTEGER").Error; err != nil &&
+			!strings.Contains(err.Error(), "ORA-01430") {
+			log.Printf("Error adding SHIPPING_ADDRESS_ID column: %v", err)
+		}
+	}
+
+	// SHIPPING_METHOD_CODE
+	colCount = 0
+	db.Raw("SELECT COUNT(*) FROM USER_TAB_COLUMNS WHERE TABLE_NAME = 'ORDERS' AND COLUMN_NAME = 'SHIPPING_METHOD_CODE'").Scan(&colCount)
+	if colCount == 0 {
+		log.Println("Adding SHIPPING_METHOD_CODE column to orders table...")
+		if err := db.Exec("ALTER TABLE orders ADD SHIPPING_METHOD_CODE VARCHAR2(50)").Error; err != nil &&
+			!strings.Contains(err.Error(), "ORA-01430") {
+			log.Printf("Error adding SHIPPING_METHOD_CODE column: %v", err)
+		}
+	}
+}
+
+// ensureUserLoyaltyColumns guarantees loyalty_tier and loyalty_points
+// exist on the users table for the loyalty feature.
+func ensureUserLoyaltyColumns(db *gorm.DB) {
+	var colCount int64
+
+	// LOYALTY_TIER
+	db.Raw("SELECT COUNT(*) FROM USER_TAB_COLUMNS WHERE TABLE_NAME = 'USERS' AND COLUMN_NAME = 'LOYALTY_TIER'").Scan(&colCount)
+	if colCount == 0 {
+		log.Println("Adding LOYALTY_TIER column to users table...")
+		if err := db.Exec("ALTER TABLE users ADD LOYALTY_TIER VARCHAR2(20) DEFAULT 'Bronze'").Error; err != nil &&
+			!strings.Contains(err.Error(), "ORA-01430") {
+			log.Printf("Error adding LOYALTY_TIER column: %v", err)
+		}
+	}
+
+	// LOYALTY_POINTS
+	colCount = 0
+	db.Raw("SELECT COUNT(*) FROM USER_TAB_COLUMNS WHERE TABLE_NAME = 'USERS' AND COLUMN_NAME = 'LOYALTY_POINTS'").Scan(&colCount)
+	if colCount == 0 {
+		log.Println("Adding LOYALTY_POINTS column to users table...")
+		if err := db.Exec("ALTER TABLE users ADD LOYALTY_POINTS NUMBER(10) DEFAULT 0").Error; err != nil &&
+			!strings.Contains(err.Error(), "ORA-01430") {
+			log.Printf("Error adding LOYALTY_POINTS column: %v", err)
+		}
+	}
 }
 
 func createOrderItemsTable(db *gorm.DB) {

@@ -37,7 +37,8 @@ export const RegisterPage: React.FC = () => {
 
     try {
       await register(name, email, password);
-      navigate('/');
+      // Đăng ký thành công: chuyển về trang đăng nhập với thông báo
+      navigate('/login?registered=1');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
@@ -279,9 +280,24 @@ export const RegisterPage: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3.5 bg-[#E87A90] hover:bg-[#d66a81] text-white rounded-xl font-medium tracking-wide transition-colors disabled:opacity-50 shadow-[0_10px_25px_rgba(232,122,144,0.35)] mt-2"
+              className="w-full py-3.5 text-white rounded-xl font-medium tracking-wide transition-all disabled:opacity-50 mt-2"
+              style={{
+                background: '#E87A90',
+                boxShadow: '0 10px 25px rgba(232,122,144,0.35)',
+                border: 'none',
+              }}
+              onMouseEnter={(e) => {
+                if (!isLoading) {
+                  e.currentTarget.style.background = '#d66a81';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isLoading) {
+                  e.currentTarget.style.background = '#E87A90';
+                }
+              }}
             >
-              {isLoading ? 'Signing up...' : 'Sign Up'}
+              {isLoading ? 'Registering...' : 'Register'}
             </button>
           </form>
 

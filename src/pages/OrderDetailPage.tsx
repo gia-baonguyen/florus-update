@@ -99,6 +99,34 @@ export function OrderDetailPage() {
     }
   };
 
+  // Derived state (status + grouped items) must be defined before any conditional returns
+  const status = order ? statusConfig[order.status] || statusConfig.pending : statusConfig.pending;
+  const StatusIcon = status.icon;
+  const canCancel = !!order && (order.status === 'pending' || order.status === 'confirmed');
+  const canRequestReturn = !!order && order.status === 'delivered';
+
+  // Gom các OrderItem cùng product_id lại thành 1 dòng, cộng quantity & total_price
+  const groupedItems = useMemo(() => {
+    if (!order || !order.items || order.items.length === 0) return [];
+
+    const map = new Map<number, typeof order.items[number]>();
+
+    for (const item of order.items) {
+      const key = item.product_id;
+      const existing = map.get(key);
+
+      if (existing) {
+        existing.quantity += item.quantity;
+        existing.total_price += item.total_price;
+      } else {
+        // clone để tránh mutate trực tiếp item trong state
+        map.set(key, { ...item });
+      }
+    }
+
+    return Array.from(map.values());
+  }, [order]);
+
   // Not logged in
   if (!isAuthenticated) {
     return (
@@ -165,33 +193,6 @@ export function OrderDetailPage() {
       </div>
     );
   }
-
-  const status = statusConfig[order.status] || statusConfig.pending;
-  const StatusIcon = status.icon;
-  const canCancel = order.status === 'pending' || order.status === 'confirmed';
-  const canRequestReturn = order.status === 'delivered';
-
-  // Gom các OrderItem cùng product_id lại thành 1 dòng, cộng quantity & total_price
-  const groupedItems = useMemo(() => {
-    if (!order.items || order.items.length === 0) return [];
-
-    const map = new Map<number, typeof order.items[number]>();
-
-    for (const item of order.items) {
-      const key = item.product_id;
-      const existing = map.get(key);
-
-      if (existing) {
-        existing.quantity += item.quantity;
-        existing.total_price += item.total_price;
-      } else {
-        // clone để tránh mutate trực tiếp item trong state
-        map.set(key, { ...item });
-      }
-    }
-
-    return Array.from(map.values());
-  }, [order.items]);
 
   return (
     <div className="min-h-screen bg-[var(--color-surface-warm)]">

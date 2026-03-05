@@ -123,6 +123,16 @@ type ChangePasswordRequest struct {
 	NewPassword     string `json:"new_password" binding:"required,min=6"`
 }
 
+// Forgot / Reset password DTOs (demo flow)
+type ForgotPasswordRequest struct {
+	Email string `json:"email" binding:"required,email"`
+}
+
+type ResetPasswordRequest struct {
+	Email       string `json:"email" binding:"required,email"`
+	NewPassword string `json:"new_password" binding:"required,min=6"`
+}
+
 // Review DTOs
 type CreateReviewRequest struct {
 	Rating  int    `json:"rating" binding:"required,min=1,max=5"`

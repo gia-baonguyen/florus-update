@@ -199,3 +199,49 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 
 	utils.OK(c, "Password changed successfully", nil)
 }
+
+// ForgotPassword (demo) godoc
+// @Summary Request password reset (demo)
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body dto.ForgotPasswordRequest true "Forgot password request"
+// @Success 200 {object} utils.Response
+// @Router /api/auth/forgot-password [post]
+func (h *AuthHandler) ForgotPassword(c *gin.Context) {
+	var req dto.ForgotPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	if err := h.authService.ForgotPassword(req); err != nil {
+		utils.InternalServerError(c, err.Error())
+		return
+	}
+
+	utils.OK(c, "If an account exists for this email, reset instructions have been sent (demo).", nil)
+}
+
+// ResetPassword (demo) godoc
+// @Summary Reset password by email (demo, no token)
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body dto.ResetPasswordRequest true "Reset password request"
+// @Success 200 {object} utils.Response
+// @Router /api/auth/reset-password [post]
+func (h *AuthHandler) ResetPassword(c *gin.Context) {
+	var req dto.ResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	if err := h.authService.ResetPassword(req); err != nil {
+		utils.InternalServerError(c, err.Error())
+		return
+	}
+
+	utils.OK(c, "Password has been reset successfully (demo).", nil)
+}

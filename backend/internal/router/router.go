@@ -91,6 +91,9 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/google", authHandler.GoogleLogin)
+			// Demo forgot/reset password flows
+			auth.POST("/forgot-password", authHandler.ForgotPassword)
+			auth.POST("/reset-password", authHandler.ResetPassword)
 			auth.GET("/me", middleware.Auth(cfg.JWT.Secret), authHandler.GetMe)
 			auth.PUT("/profile", middleware.Auth(cfg.JWT.Secret), authHandler.UpdateProfile)
 			auth.PUT("/password", middleware.Auth(cfg.JWT.Secret), authHandler.ChangePassword)

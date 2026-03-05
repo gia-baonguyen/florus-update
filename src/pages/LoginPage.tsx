@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Mail, Lock, Sparkles } from 'lucide-react';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
@@ -13,9 +13,29 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [registerSuccess, setRegisterSuccess] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('registered') === '1') {
+      setRegisterSuccess(true);
+      // Xoá query param khỏi URL cho sạch (không bắt buộc)
+      const url = new URL(window.location.href);
+      url.searchParams.delete('registered');
+      window.history.replaceState({}, '', url.toString());
+    }
+    if (params.get('reset') === '1') {
+      setResetSuccess(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('reset');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [location.search]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,6 +115,20 @@ export const LoginPage: React.FC = () => {
               Sign in to continue your beauty journey
             </p>
           </div>
+
+          {/* Register success message */}
+          {registerSuccess && (
+            <div className="bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm border border-green-100 mb-4">
+              Account created successfully. Please sign in with your new credentials.
+            </div>
+          )}
+
+          {/* Reset password success message */}
+          {resetSuccess && (
+            <div className="bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm border border-green-100 mb-4">
+              Password has been reset successfully. Please sign in with your new password.
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (
@@ -197,6 +231,7 @@ export const LoginPage: React.FC = () => {
               <button 
                 type="button"
                 className="text-[#FF6B6B] hover:text-[#E85555] font-medium transition-colors text-sm"
+                onClick={() => navigate('/forgot-password')}
               >
                 Forgot password?
               </button>
@@ -258,9 +293,13 @@ export const LoginPage: React.FC = () => {
           </p>
 
           {/* Demo Hint */}
-          <div className="mt-6 p-4 bg-[#D4F4EB] border border-[#1FAB89]/20 rounded-xl text-center">
-            <p className="text-xs text-gray-700">
-              <span className="font-semibold">Demo:</span> Use any email/password to sign in
+          <div className="mt-6 p-4 bg-[#D4F4EB] border border-[#1FAB89]/20 rounded-xl text-center text-xs text-gray-700">
+            <p className="mb-1">
+              <span className="font-semibold">Demo accounts:</span>
+            </p>
+            <p>Admin: admin@florus.com / admin123</p>
+            <p className="mt-1">
+              Or create a new account on the <Link to="/register" className="text-[#FF6B6B] font-medium hover:text-[#E85555]">Sign Up</Link> page.
             </p>
           </div>
         </div>

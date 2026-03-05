@@ -23,6 +23,9 @@ type AuthService interface {
 	GetCurrentUser(userID uint) (*dto.UserResponse, error)
 	UpdateProfile(userID uint, req dto.UpdateProfileRequest) (*dto.UserResponse, error)
 	ChangePassword(userID uint, req dto.ChangePasswordRequest) error
+	// Demo-only flows for forgot/reset password
+	ForgotPassword(req dto.ForgotPasswordRequest) error
+	ResetPassword(req dto.ResetPasswordRequest) error
 }
 
 type authService struct {
@@ -148,5 +151,27 @@ func (s *authService) ChangePassword(userID uint, req dto.ChangePasswordRequest)
 		return err
 	}
 
+	return s.userRepo.Update(user)
+}
+
+// ForgotPassword is a demo implementation: it does not send real email,
+// it just returns success so the frontend can show a message.
+func (s *authService) ForgotPassword(req dto.ForgotPasswordRequest) error {
+	// Optionally check if user exists, but always return nil to avoid leaking info.
+	_, _ = s.userRepo.FindByEmail(req.Email)
+	return nil
+}
+
+// ResetPassword is a demo implementation that allows resetting password
+// by email only (no token). This should not be used in production.
+func (s *authService) ResetPassword(req dto.ResetPasswordRequest) error {
+	user, err := s.userRepo.FindByEmail(req.Email)
+	if err != nil {
+		// For demo, do not leak that user doesn't exist.
+		return nil
+	}
+	if err := user.SetPassword(req.NewPassword); err != nil {
+		return err
+	}
 	return s.userRepo.Update(user)
 }
