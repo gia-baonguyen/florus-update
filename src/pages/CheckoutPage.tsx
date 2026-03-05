@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { MapPin, FileText, Loader2, ShoppingBag, Check, ArrowLeft, Truck, CreditCard, Tag, X, Wallet, Banknote, Percent } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -9,9 +9,15 @@ import { paymentsApi, PaymentMethod } from '../api/payments';
 import { addressesApi } from '../api/addresses';
 import { shippingApi } from '../api/shipping';
 import { loyaltyApi } from '../api/loyalty';
-import type { UserAddress, ShippingMethod } from '../types';
+import type { UserAddress, ShippingMethod, Product } from '../types';
 import { ProductImage } from '../components/ProductImage';
 import { useEventTracking } from '../hooks/useEventTracking';
+
+// BuyNow state passed from ProductDetailPage
+interface BuyNowState {
+  product: Product;
+  quantity: number;
+}
 
 const paymentMethods = [
   { id: 'cod' as PaymentMethod, name: 'Cash on Delivery', icon: Banknote, description: 'Pay when you receive' },
@@ -22,8 +28,13 @@ const paymentMethods = [
 
 export function CheckoutPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { cart, loading: cartLoading, refreshCart } = useCart();
   const { isAuthenticated } = useAuth();
+
+  // Check if this is a Buy Now checkout (single product, no cart)
+  const buyNowState = location.state?.buyNow as BuyNowState | undefined;
+  const isBuyNowMode = !!buyNowState;
   const [shippingAddress, setShippingAddress] = useState('');
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
@@ -49,6 +60,16 @@ export function CheckoutPage() {
   const [showCouponList, setShowCouponList] = useState(false);
   const { trackPurchase } = useEventTracking();
 
+  // Calculate values based on buyNow or cart mode (must be before functions that use these)
+  const buyNowSubtotal = buyNowState
+    ? buyNowState.product.price * buyNowState.quantity
+    : 0;
+  const buyNowItemCount = buyNowState ? buyNowState.quantity : 0;
+  // Free shipping threshold (same logic as cart: free if subtotal >= 500000)
+  const FREE_SHIPPING_THRESHOLD = 500000;
+  const SHIPPING_FEE = 30000;
+  const buyNowShippingFee = buyNowSubtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -61,7 +82,8 @@ export function CheckoutPage() {
     setCouponError(null);
 
     try {
-      const result = await couponsApi.validateCoupon(code.toUpperCase(), cart?.subtotal || 0);
+      const subtotal = isBuyNowMode ? buyNowSubtotal : (cart?.subtotal || 0);
+      const result = await couponsApi.validateCoupon(code.toUpperCase(), subtotal);
       setAppliedCoupon(result);
       setCouponError(null);
     } catch (err: any) {
@@ -89,16 +111,17 @@ export function CheckoutPage() {
   // Fetch available coupons for dropdown list, similar to Shopee
   useEffect(() => {
     const fetchCoupons = async () => {
-      if (!cart || !cart.subtotal) return;
+      const subtotal = isBuyNowMode ? buyNowSubtotal : cart?.subtotal;
+      if (!subtotal) return;
       try {
-        const coupons = await couponsApi.getAvailable(cart.subtotal);
+        const coupons = await couponsApi.getAvailable(subtotal);
         setAvailableCoupons(coupons);
       } catch (err) {
         console.error('Failed to fetch available coupons', err);
       }
     };
     fetchCoupons();
-  }, [cart?.subtotal]);
+  }, [isBuyNowMode, buyNowSubtotal, cart?.subtotal]);
 
   // Fetch addresses, shipping methods, and loyalty info
   useEffect(() => {
@@ -145,8 +168,9 @@ export function CheckoutPage() {
   // Calculate final total with coupon + loyalty discount (client-side preview)
   const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0;
   const loyaltyDiscount = Math.min(pointsToUse, loyaltyPoints) * 1000;
-  const baseSubtotal = cart?.subtotal || 0;
-  const baseShipping = cart?.shipping_fee || 0;
+  const baseSubtotal = isBuyNowMode ? buyNowSubtotal : (cart?.subtotal || 0);
+  const baseShipping = isBuyNowMode ? buyNowShippingFee : (cart?.shipping_fee || 0);
+  const itemCount = isBuyNowMode ? buyNowItemCount : (cart?.item_count || 0);
   const finalTotal = baseSubtotal + baseShipping - couponDiscount - loyaltyDiscount;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -160,15 +184,28 @@ export function CheckoutPage() {
     setError(null);
 
     try {
-      const order = await ordersApi.create(
-        shippingAddress,
-        note,
-        appliedCoupon?.coupon.code,
-        selectedPaymentMethod,
-        selectedAddressId ?? undefined,
-        selectedShippingMethod || undefined,
-        pointsToUse > 0 ? pointsToUse : undefined
-      );
+      // Use different API based on buyNow mode vs cart mode
+      const order = isBuyNowMode
+        ? await ordersApi.buyNow(
+            buyNowState!.product.id,
+            buyNowState!.quantity,
+            shippingAddress,
+            note,
+            appliedCoupon?.coupon.code,
+            selectedPaymentMethod,
+            selectedAddressId ?? undefined,
+            selectedShippingMethod || undefined,
+            pointsToUse > 0 ? pointsToUse : undefined
+          )
+        : await ordersApi.create(
+            shippingAddress,
+            note,
+            appliedCoupon?.coupon.code,
+            selectedPaymentMethod,
+            selectedAddressId ?? undefined,
+            selectedShippingMethod || undefined,
+            pointsToUse > 0 ? pointsToUse : undefined
+          );
 
       // If online payment method, redirect to payment gateway
       if (selectedPaymentMethod !== 'cod') {
@@ -265,8 +302,8 @@ export function CheckoutPage() {
     );
   }
 
-  // Loading cart
-  if (cartLoading && !cart) {
+  // Loading cart (only show loading if not in buyNow mode)
+  if (!isBuyNowMode && cartLoading && !cart) {
     return (
       <div className="min-h-screen bg-[var(--color-surface-warm)] flex items-center justify-center">
         <div className="text-center">
@@ -277,8 +314,8 @@ export function CheckoutPage() {
     );
   }
 
-  // Empty cart
-  if (!cart || !cart.items || cart.items.length === 0) {
+  // Empty cart (only check if not in buyNow mode)
+  if (!isBuyNowMode && (!cart || !cart.items || cart.items.length === 0)) {
     return (
       <div className="min-h-screen bg-[var(--color-surface-warm)]">
         <div className="container py-12">
@@ -595,30 +632,48 @@ export function CheckoutPage() {
               )}
             </div>
 
-            {/* Cart Items Summary */}
+            {/* Products Summary - Cart items or BuyNow product */}
             <div className="bg-white rounded-xl border border-[var(--color-border)] p-6 shadow-[var(--shadow-sm)]">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 bg-blue-100 rounded-xl">
                   <ShoppingBag className="w-5 h-5 text-blue-600" />
                 </div>
-                <h3 className="font-serif">Products ({cart.item_count})</h3>
+                <h3 className="font-serif">Products ({itemCount})</h3>
               </div>
               <div className="space-y-3">
-                {cart.items.map((item) => (
-                  <div key={item.id} className="flex gap-3 p-3 bg-[var(--color-surface-warm)] rounded-xl">
+                {isBuyNowMode && buyNowState ? (
+                  // Buy Now mode: show single product
+                  <div className="flex gap-3 p-3 bg-[var(--color-surface-warm)] rounded-xl">
                     <div className="w-16 h-16 rounded-lg overflow-hidden bg-white border border-[var(--color-border)] flex-shrink-0">
-                      <ProductImage imageUrl={item.product.image_url} alt={item.product.name} size="small" />
+                      <ProductImage imageUrl={buyNowState.product.image_url} alt={buyNowState.product.name} size="small" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-[var(--color-text-muted)] uppercase">{item.product.brand}</p>
-                      <p className="text-sm font-medium truncate">{item.product.name}</p>
+                      <p className="text-xs text-[var(--color-text-muted)] uppercase">{buyNowState.product.brand}</p>
+                      <p className="text-sm font-medium truncate">{buyNowState.product.name}</p>
                       <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-[var(--color-text-secondary)]">x{item.quantity}</span>
-                        <span className="text-sm text-[var(--color-primary)]">{formatPrice(item.total)}</span>
+                        <span className="text-xs text-[var(--color-text-secondary)]">x{buyNowState.quantity}</span>
+                        <span className="text-sm text-[var(--color-primary)]">{formatPrice(buyNowState.product.price * buyNowState.quantity)}</span>
                       </div>
                     </div>
                   </div>
-                ))}
+                ) : (
+                  // Cart mode: show cart items
+                  cart?.items?.map((item) => (
+                    <div key={item.id} className="flex gap-3 p-3 bg-[var(--color-surface-warm)] rounded-xl">
+                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-white border border-[var(--color-border)] flex-shrink-0">
+                        <ProductImage imageUrl={item.product.image_url} alt={item.product.name} size="small" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-[var(--color-text-muted)] uppercase">{item.product.brand}</p>
+                        <p className="text-sm font-medium truncate">{item.product.name}</p>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs text-[var(--color-text-secondary)]">x{item.quantity}</span>
+                          <span className="text-sm text-[var(--color-primary)]">{formatPrice(item.total)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -630,7 +685,7 @@ export function CheckoutPage() {
                   <h4 className="text-blue-700 mb-1">Shipping Information</h4>
                   <p className="text-sm text-blue-600 leading-relaxed">
                     Orders will be processed within 1-2 business days.
-                    {cart.shipping_fee === 0
+                    {baseShipping === 0
                       ? ' Free shipping for orders over $500!'
                       : ' Nationwide delivery within 3-5 days.'}
                   </p>
@@ -647,17 +702,17 @@ export function CheckoutPage() {
               <div className="space-y-3 mb-4 pb-4 border-b border-[var(--color-border)]">
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--color-text-secondary)] text-sm">
-                    Subtotal ({cart.item_count} items)
+                    Subtotal ({itemCount} items)
                   </span>
-                  <span>{formatPrice(cart.subtotal)}</span>
+                  <span>{formatPrice(baseSubtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--color-text-secondary)] text-sm">Shipping</span>
                   <span>
-                    {cart.shipping_fee === 0 ? (
+                    {baseShipping === 0 ? (
                       <span className="text-[var(--color-success)]">Free</span>
                     ) : (
-                      formatPrice(cart.shipping_fee)
+                      formatPrice(baseShipping)
                     )}
                   </span>
                 </div>

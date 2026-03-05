@@ -57,5 +57,6 @@
       port: 3001,
       strictPort: true,
       open: true,
+      host: true, // Expose to LAN network
     },
   });

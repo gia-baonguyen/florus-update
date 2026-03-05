@@ -74,7 +74,7 @@ export function WishlistPage() {
       </header>
 
       <div className="container py-6">
-        {!wishlist || wishlist.items?.length === 0 ? (
+        {!wishlist || !wishlist.items || wishlist.items.length === 0 ? (
           <div className="text-center py-16">
             <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h2 className="text-xl font-semibold text-gray-600 mb-2">Wishlist is empty</h2>

@@ -39,7 +39,8 @@ func (s *wishlistService) GetWishlist(userID uint) (*dto.WishlistResponse, error
 		return nil, err
 	}
 
-	var itemResponses []dto.WishlistItemResponse
+	// Initialize as empty slice to avoid null in JSON response
+	itemResponses := make([]dto.WishlistItemResponse, 0)
 	for _, item := range items {
 		itemResponses = append(itemResponses, dto.ToWishlistItemResponse(&item))
 	}

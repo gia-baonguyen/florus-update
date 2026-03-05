@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingCart, User, Sparkles, LogOut, X, Loader2, History, Heart } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Search, ShoppingCart, User, Sparkles, LogOut, X, Loader2, History, Heart, Settings } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { User as UserType, Product } from '../types';
 import { productsApi } from '../api/products';
 import { ProductImage } from './ProductImage';
@@ -21,6 +21,7 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
   const [showResults, setShowResults] = useState(false);
   
   const location = useLocation();
+  const navigate = useNavigate();
   const isOrderHistoryPage = location.pathname === '/orders';
   const isWishlistPage = location.pathname === '/wishlist';
   
@@ -79,6 +80,15 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
     setShowResults(false);
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchQuery('');
+      setShowResults(false);
+    }
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -127,7 +137,7 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
 
           {/* Search Bar - Hidden on mobile */}
           <div ref={searchRef} className="hidden md:flex flex-1 max-w-md mx-8 relative">
-            <div className="relative w-full">
+            <form onSubmit={handleSearch} className="relative w-full">
               {isSearching ? (
                 <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-primary)] animate-spin" />
               ) : (
@@ -143,13 +153,14 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
               />
               {searchQuery && (
                 <button
+                  type="button"
                   onClick={clearSearch}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full transition-colors"
                 >
                   <X className="w-4 h-4 text-gray-400" />
                 </button>
               )}
-            </div>
+            </form>
             {showResults && <SearchResultsDropdown />}
           </div>
 
@@ -189,7 +200,43 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
                   }`} />
                 </Link>
 
-                {/* User Profile */}
+                {/* User Profile Link */}
+                <Link
+                  to="/profile"
+                  className={`p-2 rounded-lg transition-colors group ${
+                    location.pathname === '/profile'
+                      ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
+                      : 'hover:bg-[var(--color-primary-light)] text-gray-500'
+                  }`}
+                  title="Profile"
+                >
+                  <User
+                    className={`w-5 h-5 ${
+                      location.pathname === '/profile' ? 'text-[var(--color-primary)]' : 'group-hover:text-[var(--color-primary)]'
+                    }`}
+                  />
+                </Link>
+
+                {/* Admin Dashboard Link - Only for admin users */}
+                {user.role === 'admin' && (
+                  <Link
+                    to="/admin"
+                    className={`p-2 rounded-lg transition-colors group ${
+                      location.pathname.startsWith('/admin')
+                        ? 'bg-purple-100 text-purple-600'
+                        : 'hover:bg-purple-50 text-gray-500'
+                    }`}
+                    title="Admin Dashboard"
+                  >
+                    <Settings
+                      className={`w-5 h-5 ${
+                        location.pathname.startsWith('/admin') ? 'text-purple-600' : 'group-hover:text-purple-600'
+                      }`}
+                    />
+                  </Link>
+                )}
+
+                {/* User Name Badge - Desktop only */}
                 <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-[var(--color-primary-light)] rounded-full">
                   <div className="w-6 h-6 bg-[var(--color-primary)] rounded-full flex items-center justify-center text-white text-xs">
                     {user.name.charAt(0).toUpperCase()}
@@ -234,7 +281,7 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
 
       {/* Mobile Search */}
       <div ref={mobileSearchRef} className="md:hidden px-4 pb-3 relative">
-        <div className="relative">
+        <form onSubmit={handleSearch} className="relative">
           {isSearching ? (
             <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-primary)] animate-spin" />
           ) : (
@@ -250,13 +297,14 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
           />
           {searchQuery && (
             <button
+              type="button"
               onClick={clearSearch}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full transition-colors"
             >
               <X className="w-4 h-4 text-gray-400" />
             </button>
           )}
-        </div>
+        </form>
         {showResults && <SearchResultsDropdown />}
       </div>
     </header>

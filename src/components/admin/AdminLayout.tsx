@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { AdminSidebar } from './AdminSidebar';
 import { useAuth } from '../../context/AuthContext';
@@ -6,20 +6,19 @@ import { Loader2, Menu } from 'lucide-react';
 
 export function AdminLayout() {
   const { user, isAuthenticated, loading } = useAuth();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState(() => {
+    // Load from localStorage or default to hidden
+    const saved = localStorage.getItem('admin_sidebar_hidden');
+    if (saved !== null) return saved === 'true';
+    return true; // Hidden by default
+  });
 
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        setSidebarCollapsed(true);
-      }
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  // Toggle sidebar visibility
+  const toggleSidebar = () => {
+    const newState = !sidebarHidden;
+    setSidebarHidden(newState);
+    localStorage.setItem('admin_sidebar_hidden', String(newState));
+  };
 
   if (loading) {
     return (
@@ -60,46 +59,39 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Desktop Sidebar */}
-      <div className="hidden lg:block">
-        <AdminSidebar
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
-        />
-      </div>
-
-      {/* Mobile Sidebar Overlay */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
-
-      {/* Mobile Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-50 lg:hidden transform transition-transform duration-300 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <AdminSidebar onToggle={() => setMobileMenuOpen(false)} />
-      </div>
-
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen">
-        {/* Mobile Header */}
-        <header className="lg:hidden h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4">
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <h1 className="text-lg font-bold text-[var(--color-primary)]">Florus Admin</h1>
-          <div className="w-10" />
-        </header>
-
         {/* Page Content */}
         <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
           <Outlet />
         </main>
       </div>
+
+      {/* Sidebar - positioned on right */}
+      {!sidebarHidden && (
+        <>
+          {/* Overlay to close sidebar */}
+          <div
+            className="fixed inset-0 bg-black/30 z-40"
+            onClick={toggleSidebar}
+          />
+          {/* Sidebar */}
+          <div className="fixed inset-y-0 right-0 z-50">
+            <AdminSidebar onToggle={toggleSidebar} />
+          </div>
+        </>
+      )}
+
+      {/* Floating button to show sidebar when hidden */}
+      {sidebarHidden && (
+        <button
+          onClick={toggleSidebar}
+          className="fixed top-4 right-4 z-50 p-3 bg-[var(--color-primary)] text-white rounded-lg shadow-lg hover:bg-[var(--color-primary-hover)] transition-all"
+          title="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
     </div>
   );
 }

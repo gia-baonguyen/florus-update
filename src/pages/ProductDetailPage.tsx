@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star, ShoppingCart, Heart, Share2, Users, Sparkles, Award, Loader2 } from 'lucide-react';
+import { Star, ShoppingCart, Heart, Share2, Users, Sparkles, Award, Loader2, Check } from 'lucide-react';
 import { ProductCarousel } from '../components/ProductCarousel';
 import { ProductImageGallery } from '../components/ProductImageGallery';
 import { ReviewSection } from '../components/ReviewSection';
@@ -24,6 +24,7 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
 
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { isAuthenticated } = useAuth();
@@ -140,10 +141,45 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
       navigate('/login');
       return;
     }
-    // Add to cart once với quantity đã chọn, sau đó chuyển sang checkout
-    onAddToCart(product.id.toString(), quantity);
-    trackAddToCart(product.id, quantity, product.price);
-    navigate('/checkout');
+    // Navigate to checkout with buyNow state - no cart involved
+    navigate('/checkout', {
+      state: {
+        buyNow: {
+          product: product,
+          quantity: quantity,
+        },
+      },
+    });
+  };
+
+  const handleShare = async () => {
+    const shareUrl = window.location.href;
+    const shareData = {
+      title: product.name,
+      text: `Check out ${product.name} - ${formatPrice(product.price)} at Florus Beauty!`,
+      url: shareUrl,
+    };
+
+    // Try Web Share API first (mobile/modern browsers)
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        // User cancelled or error - silently ignore
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Share failed:', err);
+        }
+      }
+    } else {
+      // Fallback: copy URL to clipboard
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareStatus('copied');
+        setTimeout(() => setShareStatus('idle'), 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    }
   };
 
   return (
@@ -332,9 +368,25 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
                   <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current' : ''}`} />
                   {isWishlisted ? 'Wishlisted' : 'Wishlist'}
                 </button>
-                <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-gray-200 rounded-lg hover:bg-gray-50 transition-all">
-                  <Share2 className="w-4 h-4" />
-                  Share
+                <button
+                  onClick={handleShare}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border-2 rounded-lg transition-all ${
+                    shareStatus === 'copied'
+                      ? 'border-green-300 bg-green-50 text-green-600'
+                      : 'border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {shareStatus === 'copied' ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-4 h-4" />
+                      Share
+                    </>
+                  )}
                 </button>
               </div>
             </div>

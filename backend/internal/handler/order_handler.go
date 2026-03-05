@@ -110,6 +110,41 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	utils.Created(c, "Order created successfully", order)
 }
 
+// BuyNow godoc
+// @Summary Create an order directly from a single product (without cart)
+// @Tags Orders
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body dto.BuyNowRequest true "Buy Now request"
+// @Success 201 {object} dto.OrderResponse
+// @Router /api/orders/buy-now [post]
+func (h *OrderHandler) BuyNow(c *gin.Context) {
+	userID := middleware.GetUserID(c)
+
+	var req dto.BuyNowRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	order, err := h.orderService.BuyNow(userID, req)
+	if err != nil {
+		if errors.Is(err, service.ErrInsufficientStock) {
+			utils.BadRequest(c, "Insufficient stock for this product")
+			return
+		}
+		if errors.Is(err, service.ErrProductNotFound) {
+			utils.BadRequest(c, "Product not found")
+			return
+		}
+		utils.InternalServerError(c, err.Error())
+		return
+	}
+
+	utils.Created(c, "Order created successfully", order)
+}
+
 // CancelOrder godoc
 // @Summary Cancel an order
 // @Tags Orders

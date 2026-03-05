@@ -30,6 +30,7 @@ type EventRequest struct {
 	Price       float64 `json:"price"`
 	Rating      *int    `json:"rating"`
 	Metadata    string  `json:"metadata"`
+	UserID      *uint   `json:"user_id"` // Optional: for data import purposes
 }
 
 // LogEvent handles POST /api/events - logs a user event
@@ -53,6 +54,10 @@ func (h *EventHandler) LogEvent(c *gin.Context) {
 	if id, exists := c.Get("user_id"); exists {
 		uid := id.(uint)
 		userID = &uid
+	}
+	// Allow user_id from request body for data import purposes
+	if userID == nil && req.UserID != nil {
+		userID = req.UserID
 	}
 
 	// Get or create session ID

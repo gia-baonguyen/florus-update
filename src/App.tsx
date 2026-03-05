@@ -20,6 +20,7 @@ import { WishlistPage } from './pages/WishlistPage';
 import { CategoriesListPage } from './pages/CategoriesListPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { PaymentResultPage } from './pages/PaymentResultPage';
+import { CameraTest } from './pages/CameraTest';
 
 // Admin imports
 import { AdminLayout } from './components/admin/AdminLayout';
@@ -433,6 +434,7 @@ export default function App() {
             <Route path="/product/:id" element={<ProductDetailPageWrapper />} />
             <Route path="/products" element={<ProductsPageWrapper />} />
             <Route path="/categories" element={<CategoriesListPageWrapper />} />
+            <Route path="/camera-test" element={<CameraTest />} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminLayout />}>

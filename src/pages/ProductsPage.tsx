@@ -56,6 +56,15 @@ export function ProductsPage({ onProductClick }: ProductsPageProps) {
     loadBrands();
   }, []);
 
+  // Sync searchQuery state with URL parameter when navigating from Header
+  useEffect(() => {
+    const urlSearch = searchParams.get('q') || '';
+    if (urlSearch !== searchQuery) {
+      setSearchQuery(urlSearch);
+      setPage(1);
+    }
+  }, [searchParams]);
+
   // Update URL when filters change
   const updateURL = useCallback(() => {
     const params = new URLSearchParams();

@@ -43,6 +43,9 @@ type ProductRepository interface {
 	// Recommendations
 	FindByIDs(ids []uint) ([]models.Product, error)
 	GetRelatedProducts(productID uint, relationType models.RelationshipType, limit int) ([]models.Product, error)
+	FindTopRated(limit int) ([]models.Product, error)
+	FindTopRatedInCategory(categoryID uint, limit int) ([]models.Product, error)
+	FindSimilar(productID uint, categoryID uint, brand string, price float64, limit int) ([]models.Product, error)
 }
 
 type productRepository struct {
@@ -133,7 +136,9 @@ func (r *productRepository) FindByCategory(categoryID uint, pagination utils.Pag
 }
 
 func (r *productRepository) Update(product *models.Product) error {
-	return r.db.Save(product).Error
+	// Omit associations to prevent GORM from trying to upsert them
+	// Tags, Ingredients, Images, and Category are managed separately
+	return r.db.Omit("Tags", "Ingredients", "Images", "Category").Save(product).Error
 }
 
 func (r *productRepository) Delete(id uint) error {
@@ -306,4 +311,80 @@ func (r *productRepository) GetImages(productID uint) ([]models.ProductImage, er
 	var images []models.ProductImage
 	err := r.db.Where("product_id = ?", productID).Order("sort_order ASC").Find(&images).Error
 	return images, err
+}
+
+// FindTopRated returns top-rated products
+func (r *productRepository) FindTopRated(limit int) ([]models.Product, error) {
+	var products []models.Product
+	err := r.db.Preload("Category").
+		Where("is_active = ? AND rating > 0", true).
+		Order("rating DESC, review_count DESC").
+		Limit(limit).
+		Find(&products).Error
+	return products, err
+}
+
+// FindTopRatedInCategory returns top-rated products in a specific category
+func (r *productRepository) FindTopRatedInCategory(categoryID uint, limit int) ([]models.Product, error) {
+	var products []models.Product
+	err := r.db.Preload("Category").
+		Where("is_active = ? AND category_id = ? AND rating > 0", true, categoryID).
+		Order("rating DESC, review_count DESC").
+		Limit(limit).
+		Find(&products).Error
+	return products, err
+}
+
+// FindSimilar returns products similar to the given product based on content
+// Strategy: Same category, similar price range (±30%), prefer same brand
+func (r *productRepository) FindSimilar(productID uint, categoryID uint, brand string, price float64, limit int) ([]models.Product, error) {
+	var products []models.Product
+
+	// Price range: ±30%
+	minPrice := price * 0.7
+	maxPrice := price * 1.3
+
+	// First try: same category, same brand, similar price
+	err := r.db.Preload("Category").
+		Where("is_active = ? AND id != ? AND category_id = ? AND brand = ? AND price BETWEEN ? AND ?",
+			true, productID, categoryID, brand, minPrice, maxPrice).
+		Order("rating DESC").
+		Limit(limit).
+		Find(&products).Error
+
+	if err != nil || len(products) < limit {
+		// Second try: same category, similar price (any brand)
+		var moreProducts []models.Product
+		r.db.Preload("Category").
+			Where("is_active = ? AND id != ? AND category_id = ? AND price BETWEEN ? AND ?",
+				true, productID, categoryID, minPrice, maxPrice).
+			Order("rating DESC").
+			Limit(limit - len(products)).
+			Find(&moreProducts)
+		products = append(products, moreProducts...)
+	}
+
+	if len(products) < limit {
+		// Third try: just same category
+		var moreProducts []models.Product
+		existingIDs := make([]uint, len(products))
+		for i, p := range products {
+			existingIDs[i] = p.ID
+		}
+
+		query := r.db.Preload("Category").
+			Where("is_active = ? AND id != ? AND category_id = ?", true, productID, categoryID)
+
+		if len(existingIDs) > 0 {
+			query = query.Where("id NOT IN ?", existingIDs)
+		}
+
+		query.Order("rating DESC, review_count DESC").
+			Limit(limit - len(products)).
+			Find(&moreProducts)
+
+		products = append(products, moreProducts...)
+	}
+
+	return products, nil
 }

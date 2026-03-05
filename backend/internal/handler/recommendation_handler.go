@@ -38,6 +38,7 @@ func (h *RecommendationHandler) GetColdStart(c *gin.Context) {
 // GetWarmStart godoc
 // @Summary Get warm-start recommendations (personalized for active users)
 // @Tags Recommendations
+// @Security BearerAuth
 // @Produce json
 // @Param limit query int false "Limit results" default(4)
 // @Success 200 {array} dto.ProductResponse
@@ -45,7 +46,40 @@ func (h *RecommendationHandler) GetColdStart(c *gin.Context) {
 func (h *RecommendationHandler) GetWarmStart(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "4"))
 
-	products, err := h.recommendationService.GetWarmStartRecommendations(limit)
+	// Get user ID from context (set by auth middleware)
+	userID, exists := c.Get("userID")
+	if !exists {
+		// If no user ID, fall back to cold-start
+		products, err := h.recommendationService.GetColdStartRecommendations(limit)
+		if err != nil {
+			utils.InternalServerError(c, err.Error())
+			return
+		}
+		utils.OK(c, "Cold-start recommendations (no user)", products)
+		return
+	}
+
+	// Convert userID to uint
+	var uid uint
+	switch v := userID.(type) {
+	case uint:
+		uid = v
+	case float64:
+		uid = uint(v)
+	case int:
+		uid = uint(v)
+	default:
+		// Fall back to cold-start
+		products, err := h.recommendationService.GetColdStartRecommendations(limit)
+		if err != nil {
+			utils.InternalServerError(c, err.Error())
+			return
+		}
+		utils.OK(c, "Cold-start recommendations (invalid user)", products)
+		return
+	}
+
+	products, err := h.recommendationService.GetWarmStartRecommendations(uid, limit)
 	if err != nil {
 		utils.InternalServerError(c, err.Error())
 		return

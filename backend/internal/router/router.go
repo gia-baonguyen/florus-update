@@ -1,6 +1,8 @@
 package router
 
 import (
+	"log"
+
 	"github.com/florus/backend/internal/config"
 	"github.com/florus/backend/internal/handler"
 	"github.com/florus/backend/internal/middleware"
@@ -49,7 +51,7 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	loyaltyRepo := repository.NewLoyaltyRepository(db)
 	loyaltyService := service.NewLoyaltyService(loyaltyRepo)
 	orderService := service.NewOrderService(orderRepo, cartRepo, productRepo, userRepo, couponService, loyaltyService)
-	recommendationService := service.NewRecommendationService(productRepo)
+	recommendationService := service.NewRecommendationService(productRepo, eventRepo)
 	adminService := service.NewAdminService(db)
 	wishlistService := service.NewWishlistService(wishlistRepo, productRepo)
 	reviewService := service.NewReviewService(reviewRepo, productRepo)
@@ -58,6 +60,17 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	addressService := service.NewAddressService(repository.NewUserAddressRepository(db))
 	shippingService := service.NewShippingService(repository.NewShippingRepository(db))
 	returnService := service.NewReturnService(repository.NewReturnRepository(db), orderRepo)
+
+	// Initialize storage service (MinIO)
+	var uploadHandler *handler.UploadHandler
+	storageService, err := service.NewStorageService(&cfg.Minio)
+	if err != nil {
+		log.Printf("Warning: MinIO storage service not available: %v", err)
+		log.Printf("Image upload functionality will be disabled")
+	} else {
+		uploadHandler = handler.NewUploadHandler(storageService)
+		log.Printf("MinIO storage service initialized successfully")
+	}
 
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler()
@@ -198,6 +211,7 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			orders.GET("", orderHandler.GetOrders)
 			orders.GET("/:id", orderHandler.GetOrderByID)
 			orders.POST("", orderHandler.CreateOrder)
+			orders.POST("/buy-now", orderHandler.BuyNow)
 			orders.PUT("/:id/cancel", orderHandler.CancelOrder)
 		}
 
@@ -241,6 +255,18 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			payments.POST("/callback/zalopay", paymentHandler.ZaloPayCallback)
 			payments.POST("/callback/momo", paymentHandler.MoMoCallback)
 			payments.GET("/callback/vnpay", paymentHandler.VNPayCallback)
+		}
+
+		// Upload routes (authenticated - only if storage service is available)
+		if uploadHandler != nil {
+			upload := api.Group("/upload")
+			upload.Use(middleware.Auth(cfg.JWT.Secret))
+			{
+				upload.POST("", uploadHandler.UploadImage)
+				upload.POST("/multiple", uploadHandler.UploadMultipleImages)
+				upload.POST("/base64", uploadHandler.UploadBase64)
+				upload.POST("/base64/multiple", uploadHandler.UploadMultipleBase64)
+			}
 		}
 
 		// Event routes (public logging, some analytics)

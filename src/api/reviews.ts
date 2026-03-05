@@ -1,12 +1,19 @@
 import api from './client';
 import { ApiResponse, User } from '../types';
 
+export interface ReviewImage {
+  id: number;
+  url: string;
+  sort_order: number;
+}
+
 export interface Review {
   id: number;
   user_id: number;
   product_id: number;
   rating: number;
   comment: string;
+  images?: ReviewImage[];
   user: User;
   created_at: string;
   updated_at: string;
@@ -21,11 +28,13 @@ export interface ReviewListResponse {
 export interface CreateReviewRequest {
   rating: number;
   comment: string;
+  images?: string[]; // Array of image URLs (base64 data URLs or uploaded URLs)
 }
 
 export interface UpdateReviewRequest {
   rating?: number;
   comment?: string;
+  images?: string[]; // Array of image URLs (replaces existing images)
 }
 
 export const reviewsApi = {

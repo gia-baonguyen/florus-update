@@ -92,10 +92,18 @@ func (s *reviewService) CreateReview(userID, productID uint, req dto.CreateRevie
 		return nil, err
 	}
 
+	// Add images if provided
+	if len(req.Images) > 0 {
+		if err := s.reviewRepo.AddImages(review.ID, req.Images); err != nil {
+			// Log but don't fail the review creation
+			// Images can be added later
+		}
+	}
+
 	// Update product rating
 	s.updateProductRating(productID)
 
-	// Reload with user data
+	// Reload with user data and images
 	review, _ = s.reviewRepo.FindByID(review.ID)
 	resp := dto.ToReviewResponse(review)
 	return &resp, nil
@@ -127,9 +135,18 @@ func (s *reviewService) UpdateReview(userID, reviewID uint, req dto.UpdateReview
 		return nil, err
 	}
 
+	// Update images if provided (replace existing using transaction)
+	if req.Images != nil {
+		if err := s.reviewRepo.ReplaceImages(reviewID, req.Images); err != nil {
+			return nil, err
+		}
+	}
+
 	// Update product rating
 	s.updateProductRating(review.ProductID)
 
+	// Reload to get updated images
+	review, _ = s.reviewRepo.FindByID(reviewID)
 	resp := dto.ToReviewResponse(review)
 	return &resp, nil
 }
@@ -161,6 +178,8 @@ func (s *reviewService) GetUserReview(userID, productID uint) (*dto.ReviewRespon
 	if err != nil {
 		return nil, ErrReviewNotFound
 	}
+	// Reload to get images
+	review, _ = s.reviewRepo.FindByID(review.ID)
 	resp := dto.ToReviewResponse(review)
 	return &resp, nil
 }

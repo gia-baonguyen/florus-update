@@ -423,14 +423,21 @@ func ToWishlistItemResponse(item *models.WishlistItem) WishlistItemResponse {
 
 // Review Response
 type ReviewResponse struct {
-	ID        uint         `json:"id"`
-	UserID    uint         `json:"user_id"`
-	ProductID uint         `json:"product_id"`
-	Rating    int          `json:"rating"`
-	Comment   string       `json:"comment"`
-	User      UserResponse `json:"user"`
-	CreatedAt string       `json:"created_at"`
-	UpdatedAt string       `json:"updated_at"`
+	ID        uint                  `json:"id"`
+	UserID    uint                  `json:"user_id"`
+	ProductID uint                  `json:"product_id"`
+	Rating    int                   `json:"rating"`
+	Comment   string                `json:"comment"`
+	Images    []ReviewImageResponse `json:"images,omitempty"`
+	User      UserResponse          `json:"user"`
+	CreatedAt string                `json:"created_at"`
+	UpdatedAt string                `json:"updated_at"`
+}
+
+type ReviewImageResponse struct {
+	ID        uint   `json:"id"`
+	URL       string `json:"url"`
+	SortOrder int    `json:"sort_order"`
 }
 
 type ReviewListResponse struct {
@@ -440,7 +447,7 @@ type ReviewListResponse struct {
 }
 
 func ToReviewResponse(review *models.Review) ReviewResponse {
-	return ReviewResponse{
+	resp := ReviewResponse{
 		ID:        review.ID,
 		UserID:    review.UserID,
 		ProductID: review.ProductID,
@@ -450,6 +457,14 @@ func ToReviewResponse(review *models.Review) ReviewResponse {
 		CreatedAt: review.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt: review.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
+	for _, img := range review.Images {
+		resp.Images = append(resp.Images, ReviewImageResponse{
+			ID:        img.ID,
+			URL:       img.URL,
+			SortOrder: img.SortOrder,
+		})
+	}
+	return resp
 }
 
 // Payment Response

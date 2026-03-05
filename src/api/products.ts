@@ -170,6 +170,32 @@ export const ordersApi = {
   cancel: async (id: number): Promise<void> => {
     await api.put(`/orders/${id}/cancel`);
   },
+
+  // Buy Now - create order directly from a single product without using cart
+  buyNow: async (
+    productId: number,
+    quantity: number,
+    shippingAddress: string,
+    note?: string,
+    couponCode?: string,
+    paymentMethod?: string,
+    shippingAddressId?: number,
+    shippingMethodCode?: string,
+    loyaltyPointsToUse?: number
+  ): Promise<import('../types').Order> => {
+    const response = await api.post<import('../types').ApiResponse<import('../types').Order>>('/orders/buy-now', {
+      product_id: productId,
+      quantity: quantity,
+      shipping_address: shippingAddress,
+      note: note || '',
+      coupon_code: couponCode || '',
+      payment_method: paymentMethod || 'cod',
+      shipping_address_id: shippingAddressId,
+      shipping_method_code: shippingMethodCode,
+      loyalty_points_to_use: loyaltyPointsToUse,
+    });
+    return response.data.data;
+  },
 };
 
 export default { productsApi, categoriesApi, cartApi, recommendationsApi, ordersApi };

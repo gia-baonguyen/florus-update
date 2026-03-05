@@ -13,6 +13,15 @@ type Config struct {
 	JWT      JWTConfig
 	Google   GoogleConfig
 	Payment  PaymentConfig
+	Minio    MinioConfig
+}
+
+type MinioConfig struct {
+	Endpoint  string
+	AccessKey string
+	SecretKey string
+	Bucket    string
+	UseSSL    bool
 }
 
 type GoogleConfig struct {
@@ -121,6 +130,13 @@ func Load() *Config {
 	viper.SetDefault("VNPAY_PAYMENT_URL", "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html")
 	viper.SetDefault("VNPAY_RETURN_URL", "http://localhost:3000/payment/result")
 
+	// MinIO defaults
+	viper.SetDefault("MINIO_ENDPOINT", "localhost:9000")
+	viper.SetDefault("MINIO_ACCESS_KEY", "minioadmin")
+	viper.SetDefault("MINIO_SECRET_KEY", "minioadmin123")
+	viper.SetDefault("MINIO_BUCKET", "florus-images")
+	viper.SetDefault("MINIO_USE_SSL", false)
+
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("Warning: Config file not found, using defaults and environment variables: %v", err)
 	}
@@ -171,6 +187,13 @@ func Load() *Config {
 				PaymentURL: viper.GetString("VNPAY_PAYMENT_URL"),
 				ReturnURL:  viper.GetString("VNPAY_RETURN_URL"),
 			},
+		},
+		Minio: MinioConfig{
+			Endpoint:  viper.GetString("MINIO_ENDPOINT"),
+			AccessKey: viper.GetString("MINIO_ACCESS_KEY"),
+			SecretKey: viper.GetString("MINIO_SECRET_KEY"),
+			Bucket:    viper.GetString("MINIO_BUCKET"),
+			UseSSL:    viper.GetBool("MINIO_USE_SSL"),
 		},
 	}
 }

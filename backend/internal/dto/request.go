@@ -104,6 +104,19 @@ type UpdateOrderStatusRequest struct {
 	Status string `json:"status" binding:"required"`
 }
 
+// BuyNow - create order directly from a single product without cart
+type BuyNowRequest struct {
+	ProductID          uint   `json:"product_id" binding:"required"`
+	Quantity           int    `json:"quantity" binding:"required,gt=0"`
+	ShippingAddress    string `json:"shipping_address"`
+	ShippingAddressID  *uint  `json:"shipping_address_id"`
+	ShippingMethodCode string `json:"shipping_method_code"`
+	Note               string `json:"note"`
+	CouponCode         string `json:"coupon_code"`
+	PaymentMethod      string `json:"payment_method"`
+	LoyaltyPointsToUse *int64 `json:"loyalty_points_to_use"`
+}
+
 // User DTOs
 type UpdateUserRequest struct {
 	Name    string `json:"name"`
@@ -135,13 +148,15 @@ type ResetPasswordRequest struct {
 
 // Review DTOs
 type CreateReviewRequest struct {
-	Rating  int    `json:"rating" binding:"required,min=1,max=5"`
-	Comment string `json:"comment"`
+	Rating  int      `json:"rating" binding:"required,min=1,max=5"`
+	Comment string   `json:"comment"`
+	Images  []string `json:"images"` // Array of image URLs
 }
 
 type UpdateReviewRequest struct {
-	Rating  *int    `json:"rating"`
-	Comment *string `json:"comment"`
+	Rating  *int     `json:"rating"`
+	Comment *string  `json:"comment"`
+	Images  []string `json:"images"` // Array of image URLs (replaces existing)
 }
 
 // Address DTOs

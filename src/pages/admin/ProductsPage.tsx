@@ -123,9 +123,12 @@ export function ProductsPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    const confirmed = confirm('Are you sure you want to delete this product?');
-    if (!confirmed) return;
+  const handleDelete = async (id: number, skipConfirm: boolean = false) => {
+    // Shift+Click = quick delete without confirmation
+    if (!skipConfirm) {
+      const confirmed = confirm('Are you sure you want to delete this product?\n\nTip: Hold Shift and click to delete without confirmation.');
+      if (!confirmed) return;
+    }
 
     try {
       setDeleting(id);
@@ -272,9 +275,10 @@ export function ProductsPage() {
                           <Edit className="w-5 h-5" />
                         </button>
                         <button
-                          onClick={() => handleDelete(product.id)}
+                          onClick={(e) => handleDelete(product.id, e.shiftKey)}
                           disabled={deleting === product.id}
                           className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                          title="Click to delete. Shift+Click for quick delete."
                         >
                           {deleting === product.id ? (
                             <Loader2 className="w-5 h-5 animate-spin" />
