@@ -1,12 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, FileText, Loader2, ShoppingBag, Check, ArrowLeft, Truck, CreditCard, Tag, X, Wallet, Banknote } from 'lucide-react';
+import { MapPin, FileText, Loader2, ShoppingBag, Check, ArrowLeft, Truck, CreditCard, Tag, X, Wallet, Banknote, Percent } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { ordersApi } from '../api/products';
-import { couponsApi, ValidateCouponResponse } from '../api/coupons';
+import { couponsApi, ValidateCouponResponse, Coupon } from '../api/coupons';
 import { paymentsApi, PaymentMethod } from '../api/payments';
+import { addressesApi } from '../api/addresses';
+import { shippingApi } from '../api/shipping';
+import { loyaltyApi } from '../api/loyalty';
+import type { UserAddress, ShippingMethod } from '../types';
 import { ProductImage } from '../components/ProductImage';
+import { useEventTracking } from '../hooks/useEventTracking';
 
 const paymentMethods = [
   { id: 'cod' as PaymentMethod, name: 'Cash on Delivery', icon: Banknote, description: 'Pay when you receive' },
@@ -20,17 +25,29 @@ export function CheckoutPage() {
   const { cart, loading: cartLoading, refreshCart } = useCart();
   const { isAuthenticated } = useAuth();
   const [shippingAddress, setShippingAddress] = useState('');
+  const [addresses, setAddresses] = useState<UserAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
+  const [selectedShippingMethod, setSelectedShippingMethod] = useState<string>('');
   const [note, setNote] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('cod');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderSuccess, setOrderSuccess] = useState<{ orderCode: string; orderId: number } | null>(null);
 
+  // Loyalty
+  const [loyaltyPoints, setLoyaltyPoints] = useState<number>(0);
+  const [loyaltyTier, setLoyaltyTier] = useState<string>('');
+  const [pointsToUse, setPointsToUse] = useState<number>(0);
+
   // Coupon states
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<ValidateCouponResponse | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
+  const [showCouponList, setShowCouponList] = useState(false);
+  const { trackPurchase } = useEventTracking();
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -39,17 +56,12 @@ export function CheckoutPage() {
     }).format(price / 1000);
   };
 
-  const handleApplyCoupon = async () => {
-    if (!couponCode.trim()) {
-      setCouponError('Please enter a coupon code');
-      return;
-    }
-
+  const applyCouponCode = async (code: string) => {
     setIsApplyingCoupon(true);
     setCouponError(null);
 
     try {
-      const result = await couponsApi.validateCoupon(couponCode.trim().toUpperCase(), cart?.subtotal || 0);
+      const result = await couponsApi.validateCoupon(code.toUpperCase(), cart?.subtotal || 0);
       setAppliedCoupon(result);
       setCouponError(null);
     } catch (err: any) {
@@ -60,16 +72,82 @@ export function CheckoutPage() {
     }
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError('Please enter a coupon code');
+      return;
+    }
+    await applyCouponCode(couponCode.trim());
+  };
+
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setCouponCode('');
     setCouponError(null);
   };
 
-  // Calculate final total with discount
-  const finalTotal = appliedCoupon
-    ? (cart?.subtotal || 0) + (cart?.shipping_fee || 0) - appliedCoupon.discount
-    : cart?.total || 0;
+  // Fetch available coupons for dropdown list, similar to Shopee
+  useEffect(() => {
+    const fetchCoupons = async () => {
+      if (!cart || !cart.subtotal) return;
+      try {
+        const coupons = await couponsApi.getAvailable(cart.subtotal);
+        setAvailableCoupons(coupons);
+      } catch (err) {
+        console.error('Failed to fetch available coupons', err);
+      }
+    };
+    fetchCoupons();
+  }, [cart?.subtotal]);
+
+  // Fetch addresses, shipping methods, and loyalty info
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!isAuthenticated) return;
+      try {
+        // Addresses
+        const addrList = await addressesApi.getMyAddresses();
+        setAddresses(addrList);
+        const defaultAddr = addrList.find((a) => a.is_default) || addrList[0];
+        if (defaultAddr) {
+          setSelectedAddressId(defaultAddr.id);
+          setShippingAddress(
+            `${defaultAddr.full_name}, ${defaultAddr.phone}, ${defaultAddr.street}, ${defaultAddr.city}${
+              defaultAddr.state ? ', ' + defaultAddr.state : ''
+            }${defaultAddr.postal_code ? ', ' + defaultAddr.postal_code : ''}`
+          );
+        }
+      } catch (err) {
+        console.warn('Failed to fetch addresses', err);
+      }
+
+      try {
+        const methods = await shippingApi.getMethods();
+        setShippingMethods(methods);
+        if (methods.length > 0) {
+          setSelectedShippingMethod(methods[0].code);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch shipping methods', err);
+      }
+
+      try {
+        const loyalty = await loyaltyApi.getMyLoyalty();
+        setLoyaltyPoints(loyalty.points);
+        setLoyaltyTier(loyalty.tier);
+      } catch (err) {
+        console.warn('Failed to fetch loyalty info', err);
+      }
+    };
+    fetchData();
+  }, [isAuthenticated]);
+
+  // Calculate final total with coupon + loyalty discount (client-side preview)
+  const couponDiscount = appliedCoupon ? appliedCoupon.discount : 0;
+  const loyaltyDiscount = Math.min(pointsToUse, loyaltyPoints) * 1000;
+  const baseSubtotal = cart?.subtotal || 0;
+  const baseShipping = cart?.shipping_fee || 0;
+  const finalTotal = baseSubtotal + baseShipping - couponDiscount - loyaltyDiscount;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +164,10 @@ export function CheckoutPage() {
         shippingAddress,
         note,
         appliedCoupon?.coupon.code,
-        selectedPaymentMethod
+        selectedPaymentMethod,
+        selectedAddressId ?? undefined,
+        selectedShippingMethod || undefined,
+        pointsToUse > 0 ? pointsToUse : undefined
       );
 
       // If online payment method, redirect to payment gateway
@@ -104,6 +185,13 @@ export function CheckoutPage() {
           // Order created but payment failed - still show success for COD fallback
           setError('Payment gateway unavailable. Your order has been placed as Cash on Delivery.');
         }
+      }
+
+      // Log purchase events for each order item (if available)
+      if (order.items && order.items.length > 0) {
+        order.items.forEach((item) => {
+          trackPurchase(item.product_id, order.id, item.quantity, item.unit_price);
+        });
       }
 
       setOrderSuccess({ orderCode: order.order_code, orderId: order.id });
@@ -239,6 +327,39 @@ export function CheckoutPage() {
                 </div>
                 <h3 className="font-serif">Shipping Address</h3>
               </div>
+
+              {/* Saved addresses selector */}
+              {addresses.length > 0 && (
+                <div className="mb-4 flex flex-col gap-2">
+                  <label className="text-xs text-[var(--color-text-secondary)]">
+                    Choose from your saved addresses
+                  </label>
+                  <select
+                    value={selectedAddressId ?? ''}
+                    onChange={(e) => {
+                      const id = Number(e.target.value);
+                      setSelectedAddressId(id || null);
+                      const addr = addresses.find((a) => a.id === id);
+                      if (addr) {
+                        setShippingAddress(
+                          `${addr.full_name}, ${addr.phone}, ${addr.street}, ${addr.city}${
+                            addr.state ? ', ' + addr.state : ''
+                          }${addr.postal_code ? ', ' + addr.postal_code : ''}`
+                        );
+                      }
+                    }}
+                    className="w-full p-3 border-2 border-[var(--color-border)] rounded-xl focus:outline-none focus:border-[var(--color-primary)] text-sm"
+                  >
+                    <option value="">-- Select address --</option>
+                    {addresses.map((addr) => (
+                      <option key={addr.id} value={addr.id}>
+                        {addr.full_name} - {addr.city} {addr.is_default ? '(Default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <textarea
                 value={shippingAddress}
                 onChange={(e) => setShippingAddress(e.target.value)}
@@ -307,9 +428,9 @@ export function CheckoutPage() {
                   </div>
                 </div>
               ) : (
-                // Coupon input
+                // Coupon input + dropdown list
                 <div>
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 mb-2">
                     <input
                       type="text"
                       value={couponCode}
@@ -332,6 +453,53 @@ export function CheckoutPage() {
                       )}
                     </button>
                   </div>
+
+                  {/* Shopee-style coupon list */}
+                  {availableCoupons.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setShowCouponList((prev) => !prev)}
+                        className="inline-flex items-center gap-1 text-[11px] text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
+                      >
+                        <Percent className="w-3 h-3" />
+                        <span>{showCouponList ? 'Hide available coupons' : 'Choose from available coupons'}</span>
+                      </button>
+
+                      {showCouponList && (
+                        <div className="mt-2 space-y-2 max-h-40 overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
+                          {availableCoupons.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => {
+                                setCouponCode(c.code.toUpperCase());
+                                setShowCouponList(false);
+                                applyCouponCode(c.code);
+                              }}
+                              className="w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-md hover:bg-white"
+                            >
+                              <div>
+                                <span className="font-semibold mr-2">{c.code}</span>
+                                <span className="text-[var(--color-text-secondary)]">
+                                  {c.discount_type === 'percent'
+                                    ? `${c.discount_value}% off`
+                                    : `Save ${formatPrice(c.discount_value * 1000)}`}
+                                </span>
+                                {c.min_order_amount > 0 && (
+                                  <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">
+                                    Min order {formatPrice(c.min_order_amount)}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="text-[var(--color-primary)] text-[11px] font-medium">Select</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
                   {couponError && (
                     <p className="mt-2 text-sm text-red-500">{couponError}</p>
                   )}
@@ -382,6 +550,49 @@ export function CheckoutPage() {
                   );
                 })}
               </div>
+            </div>
+
+            {/* Shipping Method Selection */}
+            <div className="bg-white rounded-xl border border-[var(--color-border)] p-6 shadow-[var(--shadow-sm)]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-sky-100 rounded-xl">
+                  <Truck className="w-5 h-5 text-sky-600" />
+                </div>
+                <h3 className="font-serif">Shipping Method</h3>
+              </div>
+              {shippingMethods.length === 0 ? (
+                <p className="text-sm text-[var(--color-text-muted)]">
+                  Standard shipping will be applied.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {shippingMethods.map((method) => (
+                    <label
+                      key={method.code}
+                      className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer ${
+                        selectedShippingMethod === method.code
+                          ? 'border-[var(--color-primary)] bg-[var(--color-primary-light)]'
+                          : 'border-[var(--color-border)] hover:border-[var(--color-primary-light)]'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-medium text-sm">{method.name}</span>
+                        {method.description && (
+                          <span className="text-xs text-[var(--color-text-muted)]">
+                            {method.description}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="radio"
+                        className="ml-3"
+                        checked={selectedShippingMethod === method.code}
+                        onChange={() => setSelectedShippingMethod(method.code)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Cart Items Summary */}
@@ -457,6 +668,42 @@ export function CheckoutPage() {
                       Discount ({appliedCoupon.coupon.code})
                     </span>
                     <span>-{formatPrice(appliedCoupon.discount)}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Loyalty summary */}
+              <div className="space-y-2 mb-4 pb-4 border-b border-[var(--color-border)]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--color-text-secondary)] text-sm">Loyalty</span>
+                  <span className="text-sm">
+                    {loyaltyTier ? `${loyaltyTier} • ${loyaltyPoints} pts` : 'No loyalty points yet'}
+                  </span>
+                </div>
+                {loyaltyPoints > 0 && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      max={loyaltyPoints}
+                      value={pointsToUse}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0;
+                        setPointsToUse(Math.max(0, Math.min(val, loyaltyPoints)));
+                      }}
+                      className="w-24 p-2 border-2 border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--color-primary)]"
+                      placeholder="0"
+                    />
+                    <span className="text-xs text-[var(--color-text-muted)]">
+                      ≈ {formatPrice(pointsToUse * 1000)} discount
+                    </span>
+                    <button
+                      type="button"
+                      className="ml-auto text-xs text-[var(--color-primary)]"
+                      onClick={() => setPointsToUse(loyaltyPoints)}
+                    >
+                      Use max
+                    </button>
                   </div>
                 )}
               </div>

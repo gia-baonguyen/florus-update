@@ -20,7 +20,7 @@ export const productsApi = {
     if (sortBy) params.append('sort_by', sortBy);
 
     const response = await api.get<ApiResponse<Product[]>>(`/products?${params}`);
-    return { products: response.data.data, meta: response.data.meta };
+    return { products: response.data.data || [], meta: response.data.meta };
   },
 
   getAllWithFilter: async (filters: ProductFilterParams): Promise<{ products: Product[]; meta: any }> => {
@@ -35,7 +35,7 @@ export const productsApi = {
     if (filters.sortBy) params.append('sort_by', filters.sortBy);
 
     const response = await api.get<ApiResponse<Product[]>>(`/products?${params}`);
-    return { products: response.data.data, meta: response.data.meta };
+    return { products: response.data.data || [], meta: response.data.meta };
   },
 
   getByCategory: async (categoryId: number, page = 1, limit = 20): Promise<{ products: Product[]; meta: any }> => {
@@ -45,12 +45,12 @@ export const productsApi = {
     params.append('category_id', categoryId.toString());
 
     const response = await api.get<ApiResponse<Product[]>>(`/products?${params}`);
-    return { products: response.data.data, meta: response.data.meta };
+    return { products: response.data.data || [], meta: response.data.meta };
   },
 
   getBrands: async (): Promise<string[]> => {
     const response = await api.get<ApiResponse<string[]>>('/products/brands');
-    return response.data.data;
+    return response.data.data || [];
   },
 
   getById: async (id: number): Promise<Product> => {
@@ -90,15 +90,17 @@ export const cartApi = {
     return response.data.data;
   },
 
-  updateItem: async (productId: number, quantity: number): Promise<Cart> => {
-    const response = await api.put<ApiResponse<Cart>>(`/cart/${productId}`, {
+  // Backend expects cart item ID in the path (not product ID)
+  updateItem: async (itemId: number, quantity: number): Promise<Cart> => {
+    const response = await api.put<ApiResponse<Cart>>(`/cart/${itemId}`, {
       quantity,
     });
     return response.data.data;
   },
 
-  removeItem: async (productId: number): Promise<void> => {
-    await api.delete(`/cart/${productId}`);
+  // Backend expects cart item ID here as well
+  removeItem: async (itemId: number): Promise<void> => {
+    await api.delete(`/cart/${itemId}`);
   },
 
   clear: async (): Promise<void> => {
@@ -109,27 +111,27 @@ export const cartApi = {
 export const recommendationsApi = {
   getColdStart: async (): Promise<Product[]> => {
     const response = await api.get<ApiResponse<Product[]>>('/recommendations/cold-start');
-    return response.data.data;
+    return response.data.data || [];
   },
 
   getWarmStart: async (): Promise<Product[]> => {
     const response = await api.get<ApiResponse<Product[]>>('/recommendations/warm-start');
-    return response.data.data;
+    return response.data.data || [];
   },
 
   getSimilar: async (productId: number): Promise<Product[]> => {
     const response = await api.get<ApiResponse<Product[]>>(`/recommendations/similar/${productId}`);
-    return response.data.data;
+    return response.data.data || [];
   },
 
   getCoViewed: async (productId: number): Promise<Product[]> => {
     const response = await api.get<ApiResponse<Product[]>>(`/recommendations/co-viewed/${productId}`);
-    return response.data.data;
+    return response.data.data || [];
   },
 
   getCrossSell: async (productId: number): Promise<Product[]> => {
     const response = await api.get<ApiResponse<Product[]>>(`/recommendations/cross-sell/${productId}`);
-    return response.data.data;
+    return response.data.data || [];
   },
 };
 
@@ -144,12 +146,23 @@ export const ordersApi = {
     return response.data.data;
   },
 
-  create: async (shippingAddress: string, note?: string, couponCode?: string, paymentMethod?: string): Promise<import('../types').Order> => {
+  create: async (
+    shippingAddress: string,
+    note?: string,
+    couponCode?: string,
+    paymentMethod?: string,
+    shippingAddressId?: number,
+    shippingMethodCode?: string,
+    loyaltyPointsToUse?: number
+  ): Promise<import('../types').Order> => {
     const response = await api.post<import('../types').ApiResponse<import('../types').Order>>('/orders', {
       shipping_address: shippingAddress,
       note: note || '',
       coupon_code: couponCode || '',
       payment_method: paymentMethod || 'cod',
+      shipping_address_id: shippingAddressId,
+      shipping_method_code: shippingMethodCode,
+      loyalty_points_to_use: loyaltyPointsToUse,
     });
     return response.data.data;
   },

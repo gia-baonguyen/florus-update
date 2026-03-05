@@ -138,13 +138,13 @@ function ProductDetailPageWrapper() {
     navigate(`/product/${productId}`);
   };
 
-  const handleAddToCart = async (productId: string) => {
+  const handleAddToCart = async (productId: string, quantity = 1) => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
     try {
-      await addItem(parseInt(productId), 1);
+      await addItem(parseInt(productId), quantity);
     } catch (err) {
       console.error('Error adding to cart:', err);
     }
@@ -165,11 +165,11 @@ function ProductDetailPageWrapper() {
         onLogout={logout}
         onProductClick={handleProductClick}
       />
-      <ProductDetailPage
-        productId={id}
-        onProductClick={handleProductClick}
-        onAddToCart={handleAddToCart}
-      />
+          <ProductDetailPage
+            productId={id}
+            onProductClick={handleProductClick}
+            onAddToCart={handleAddToCart}
+          />
       <MobileNavigation
         currentPage="home"
         onNavigate={(page) => {
@@ -210,13 +210,13 @@ function AppContent() {
     setLastViewedProduct(productId);
   };
 
-  const handleAddToCart = async (productId: string) => {
+  const handleAddToCart = async (productId: string, quantity = 1) => {
     if (!isAuthenticated) {
       navigate('/login');
       return;
     }
     try {
-      await addItem(parseInt(productId), 1);
+      await addItem(parseInt(productId), quantity);
     } catch (err) {
       console.error('Error adding to cart:', err);
     }

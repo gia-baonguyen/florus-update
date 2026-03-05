@@ -101,6 +101,8 @@ type User struct {
 	AuthProvider AuthProvider `gorm:"type:varchar(20);default:local" json:"auth_provider"`
 	GoogleID     string       `gorm:"type:varchar(255);index" json:"-"`
 	AvatarURL    string       `gorm:"type:varchar(500)" json:"avatar_url,omitempty"`
+	LoyaltyTier  string       `gorm:"type:varchar(20);default:'Bronze'" json:"loyalty_tier"`
+	LoyaltyPoints int64       `gorm:"type:number(10);default:0" json:"loyalty_points"`
 	CreatedAt    time.Time    `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt    time.Time    `gorm:"autoUpdateTime" json:"updated_at"`
 

@@ -77,19 +77,45 @@ func (s *cartService) GetCart(userID uint) (*dto.CartResponse, error) {
 		return nil, err
 	}
 
-	var cartItems []dto.CartItemResponse
-	var subtotal float64
+	// In some older data, there may be multiple cart_items rows for the same product.
+	// To make the UX consistent, we aggregate items by ProductID here so that
+	// each product appears only once in the cart (with summed quantity/total).
+	type aggItem struct {
+		id       uint
+		product  models.Product
+		quantity int
+	}
+
+	aggregated := make(map[uint]*aggItem) // key: ProductID
 
 	for _, item := range items {
-		itemTotal := item.Product.Price * float64(item.Quantity)
+		if existing, ok := aggregated[item.ProductID]; ok {
+			existing.quantity += item.Quantity
+			// id và product giữ nguyên từ bản ghi đầu tiên
+		} else {
+			aggregated[item.ProductID] = &aggItem{
+				id:       item.ID,
+				product:  item.Product,
+				quantity: item.Quantity,
+			}
+		}
+	}
+
+	var cartItems []dto.CartItemResponse
+	var subtotal float64
+	var itemCount int
+
+	for productID, ai := range aggregated {
+		itemTotal := ai.product.Price * float64(ai.quantity)
 		subtotal += itemTotal
+		itemCount += ai.quantity
 
 		cartItems = append(cartItems, dto.CartItemResponse{
-			ID:        item.ID,
-			ProductID: item.ProductID,
-			Product:   dto.ToProductResponse(&item.Product),
-			Quantity:  item.Quantity,
-			Price:     item.Product.Price,
+			ID:        ai.id,
+			ProductID: productID,
+			Product:   dto.ToProductResponse(&ai.product),
+			Quantity:  ai.quantity,
+			Price:     ai.product.Price,
 			Total:     itemTotal,
 		})
 	}
@@ -101,7 +127,7 @@ func (s *cartService) GetCart(userID uint) (*dto.CartResponse, error) {
 		Subtotal:    subtotal,
 		ShippingFee: shippingFee,
 		Total:       subtotal + shippingFee,
-		ItemCount:   len(items),
+		ItemCount:   itemCount,
 	}, nil
 }
 

@@ -88,10 +88,16 @@ type UpdateCartItemRequest struct {
 
 // Order DTOs
 type CreateOrderRequest struct {
-	ShippingAddress string `json:"shipping_address" binding:"required"`
-	Note            string `json:"note"`
-	CouponCode      string `json:"coupon_code"`
-	PaymentMethod   string `json:"payment_method"` // cod, zalopay, momo, vnpay
+	// Legacy free-text address (kept for backward compatibility)
+	ShippingAddress string `json:"shipping_address"`
+	// New structured fields (preferred)
+	ShippingAddressID  *uint  `json:"shipping_address_id"`
+	ShippingMethodCode string `json:"shipping_method_code"`
+	Note               string `json:"note"`
+	CouponCode         string `json:"coupon_code"`
+	PaymentMethod      string `json:"payment_method"` // cod, zalopay, momo, vnpay
+	// Optional loyalty points the user wants to redeem on this order
+	LoyaltyPointsToUse *int64 `json:"loyalty_points_to_use"`
 }
 
 type UpdateOrderStatusRequest struct {
@@ -126,6 +132,42 @@ type CreateReviewRequest struct {
 type UpdateReviewRequest struct {
 	Rating  *int    `json:"rating"`
 	Comment *string `json:"comment"`
+}
+
+// Address DTOs
+type CreateAddressRequest struct {
+	FullName    string `json:"full_name" binding:"required"`
+	Phone       string `json:"phone" binding:"required"`
+	Street      string `json:"street" binding:"required"`
+	City        string `json:"city" binding:"required"`
+	State       string `json:"state"`
+	PostalCode  string `json:"postal_code"`
+	CountryCode string `json:"country_code"`
+	IsDefault   bool   `json:"is_default"`
+}
+
+type UpdateAddressRequest struct {
+	FullName    string `json:"full_name"`
+	Phone       string `json:"phone"`
+	Street      string `json:"street"`
+	City        string `json:"city"`
+	State       string `json:"state"`
+	PostalCode  string `json:"postal_code"`
+	CountryCode string `json:"country_code"`
+	IsDefault   *bool  `json:"is_default"`
+}
+
+// Returns DTOs
+type CreateReturnRequest struct {
+	OrderID uint                    `json:"order_id" binding:"required"`
+	Items   []CreateReturnItemEntry `json:"items" binding:"required,dive"`
+	Reason  string                  `json:"reason"`
+	Note    string                  `json:"note"`
+}
+
+type CreateReturnItemEntry struct {
+	OrderItemID uint `json:"order_item_id" binding:"required"`
+	Quantity    int  `json:"quantity" binding:"required,gt=0"`
 }
 
 // Payment DTOs

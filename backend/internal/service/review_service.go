@@ -51,6 +51,11 @@ func (s *reviewService) GetProductReviews(productID uint) (*dto.ReviewListRespon
 		reviewResponses = append(reviewResponses, dto.ToReviewResponse(&review))
 	}
 
+	// Ensure JSON encodes empty array [] instead of null
+	if reviewResponses == nil {
+		reviewResponses = []dto.ReviewResponse{}
+	}
+
 	return &dto.ReviewListResponse{
 		Reviews:       reviewResponses,
 		TotalReviews:  count,

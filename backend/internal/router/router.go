@@ -31,6 +31,7 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	wishlistRepo := repository.NewWishlistRepository(db)
 	reviewRepo := repository.NewReviewRepository(db)
 	couponRepo := repository.NewCouponRepository(db)
+	eventRepo := repository.NewEventRepository(db)
 
 	// Initialize services
 	jwtConfig := utils.JWTConfig{
@@ -45,12 +46,18 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	productService := service.NewProductService(productRepo, categoryRepo)
 	cartService := service.NewCartService(cartRepo, productRepo)
 	couponService := service.NewCouponService(couponRepo)
-	orderService := service.NewOrderService(orderRepo, cartRepo, productRepo, userRepo, couponService)
+	loyaltyRepo := repository.NewLoyaltyRepository(db)
+	loyaltyService := service.NewLoyaltyService(loyaltyRepo)
+	orderService := service.NewOrderService(orderRepo, cartRepo, productRepo, userRepo, couponService, loyaltyService)
 	recommendationService := service.NewRecommendationService(productRepo)
 	adminService := service.NewAdminService(db)
 	wishlistService := service.NewWishlistService(wishlistRepo, productRepo)
 	reviewService := service.NewReviewService(reviewRepo, productRepo)
 	paymentService := service.NewPaymentService(db, orderRepo, cfg.Payment)
+	eventService := service.NewEventService(eventRepo, nil)
+	addressService := service.NewAddressService(repository.NewUserAddressRepository(db))
+	shippingService := service.NewShippingService(repository.NewShippingRepository(db))
+	returnService := service.NewReturnService(repository.NewReturnRepository(db), orderRepo)
 
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler()
@@ -65,6 +72,11 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	reviewHandler := handler.NewReviewHandler(reviewService)
 	couponHandler := handler.NewCouponHandler(couponService)
 	paymentHandler := handler.NewPaymentHandler(paymentService)
+	eventHandler := handler.NewEventHandler(eventService)
+	addressHandler := handler.NewAddressHandler(addressService)
+	shippingHandler := handler.NewShippingHandler(shippingService)
+	loyaltyHandler := handler.NewLoyaltyHandler(loyaltyService)
+	returnHandler := handler.NewReturnHandler(returnService)
 
 	// Routes
 	api := router.Group("/api")
@@ -143,6 +155,39 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			cart.DELETE("", cartHandler.ClearCart)
 		}
 
+		// Address routes (authenticated)
+		addresses := api.Group("/addresses")
+		addresses.Use(middleware.Auth(cfg.JWT.Secret))
+		{
+			addresses.GET("", addressHandler.GetAddresses)
+			addresses.POST("", addressHandler.CreateAddress)
+			addresses.PUT("/:id", addressHandler.UpdateAddress)
+			addresses.DELETE("/:id", addressHandler.DeleteAddress)
+			addresses.PUT("/:id/default", addressHandler.SetDefaultAddress)
+		}
+
+		// Shipping routes (public)
+		shipping := api.Group("/shipping")
+		{
+			shipping.GET("/methods", shippingHandler.GetMethods)
+		}
+
+		// Loyalty routes (authenticated)
+		loyalty := api.Group("/loyalty")
+		loyalty.Use(middleware.Auth(cfg.JWT.Secret))
+		{
+			loyalty.GET("", loyaltyHandler.GetLoyalty)
+		}
+
+		// Return / RMA routes (authenticated)
+		returns := api.Group("/returns")
+		returns.Use(middleware.Auth(cfg.JWT.Secret))
+		{
+			returns.GET("", returnHandler.GetReturns)
+			returns.GET("/:id", returnHandler.GetReturnByID)
+			returns.POST("", returnHandler.CreateReturn)
+		}
+
 		// Order routes (authenticated)
 		orders := api.Group("/orders")
 		orders.Use(middleware.Auth(cfg.JWT.Secret))
@@ -174,10 +219,12 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			recommendations.GET("/cross-sell/:productId", recommendationHandler.GetCrossSell)
 		}
 
-		// Coupon routes (public validation, admin for management)
+		// Coupon routes (public validation, list available, admin for management)
 		coupons := api.Group("/coupons")
 		{
+			// Public
 			coupons.POST("/validate", couponHandler.ValidateCoupon)
+			coupons.GET("/available", couponHandler.GetAvailable)
 		}
 
 		// Payment routes
@@ -191,6 +238,22 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			payments.POST("/callback/zalopay", paymentHandler.ZaloPayCallback)
 			payments.POST("/callback/momo", paymentHandler.MoMoCallback)
 			payments.GET("/callback/vnpay", paymentHandler.VNPayCallback)
+		}
+
+		// Event routes (public logging, some analytics)
+		events := api.Group("/events")
+		{
+			// Generic event logging
+			events.POST("", eventHandler.LogEvent)
+			// Specialized helpers (optional for FE)
+			events.POST("/product-view", eventHandler.LogProductView)
+			events.POST("/add-to-cart", eventHandler.LogAddToCart)
+			events.POST("/search", eventHandler.LogSearch)
+			// Analytics / recommendation helpers
+			events.GET("/popular-products", eventHandler.GetPopularProducts)
+			events.GET("/product/:id/stats", eventHandler.GetProductStats)
+			// User behavior profile (could be used for personalization dashboard)
+			events.GET("/user/:id/behavior", eventHandler.GetUserBehavior)
 		}
 
 		// Admin routes (admin only)
@@ -208,6 +271,9 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 			// Stats
 			admin.GET("/stats", adminHandler.GetDashboardStats)
+
+			// Event stats for admin dashboards
+			admin.GET("/events/stats", eventHandler.GetEventStats)
 
 			// Coupons
 			admin.GET("/coupons", couponHandler.GetAll)

@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { Loader2, Filter, ChevronDown, Grid, LayoutGrid, Package, Search, X } from 'lucide-react';
 import { categoriesApi, productsApi } from '../api/products';
 import { Category, Product } from '../types';
+import { useSearchTracking } from '../hooks/useEventTracking';
 import { ProductCard } from '../components/ProductCard';
 
 interface CategoryPageProps {
@@ -30,6 +31,7 @@ export function CategoryPage({ onProductClick }: CategoryPageProps) {
   const [appliedPriceRange, setAppliedPriceRange] = useState<[number, number] | null>(null);
   const [selectedBrand, setSelectedBrand] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>(searchParams.get('q') || '');
+  const trackSearch = useSearchTracking();
 
   useEffect(() => {
     loadCategories();
@@ -118,6 +120,9 @@ export function CategoryPage({ onProductClick }: CategoryPageProps) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
+    if (searchQuery.trim()) {
+      trackSearch(searchQuery);
+    }
   };
 
   const clearSearch = () => {

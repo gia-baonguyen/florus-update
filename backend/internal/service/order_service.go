@@ -29,6 +29,7 @@ type orderService struct {
 	productRepo   repository.ProductRepository
 	userRepo      repository.UserRepository
 	couponService CouponService
+	loyaltyService LoyaltyService
 }
 
 func NewOrderService(
@@ -37,6 +38,7 @@ func NewOrderService(
 	productRepo repository.ProductRepository,
 	userRepo repository.UserRepository,
 	couponService CouponService,
+	loyaltyService LoyaltyService,
 ) OrderService {
 	return &orderService{
 		orderRepo:     orderRepo,
@@ -44,6 +46,7 @@ func NewOrderService(
 		productRepo:   productRepo,
 		userRepo:      userRepo,
 		couponService: couponService,
+		loyaltyService: loyaltyService,
 	}
 }
 
@@ -110,19 +113,37 @@ func (s *orderService) CreateOrder(userID uint, req dto.CreateOrderRequest) (*dt
 			couponID = coupon.ID
 		}
 
-		// 4. Calculate total
-		total := subtotal + shippingFee - discount
+		// 4. Apply loyalty points if requested
+		var loyaltyDiscount float64
+		if s.loyaltyService != nil && req.LoyaltyPointsToUse != nil && *req.LoyaltyPointsToUse > 0 {
+			_, loyaltyDiscount, err = s.loyaltyService.RedeemPoints(userID, *req.LoyaltyPointsToUse, subtotal-discount)
+			if err != nil {
+				return err
+			}
+		}
 
-		// 5. Create order
+		// 5. Calculate total
+		total := subtotal + shippingFee - discount - loyaltyDiscount
+
+		// 6. Create order
+		var shippingAddressID *uint
+		if req.ShippingAddressID != nil {
+			shippingAddressID = req.ShippingAddressID
+		}
+
+		shippingAddressText := req.ShippingAddress
+
 		order = &models.Order{
-			UserID:          userID,
-			Subtotal:        subtotal,
-			ShippingFee:     shippingFee,
-			Discount:        discount,
-			Total:           total,
-			Status:          models.OrderStatusPending,
-			ShippingAddress: req.ShippingAddress,
-			Note:            req.Note,
+			UserID:             userID,
+			Subtotal:           subtotal,
+			ShippingFee:        shippingFee,
+			Discount:           discount + loyaltyDiscount,
+			Total:              total,
+			Status:             models.OrderStatusPending,
+			ShippingAddress:    shippingAddressText,
+			ShippingAddressID:  shippingAddressID,
+			ShippingMethodCode: req.ShippingMethodCode,
+			Note:               req.Note,
 		}
 
 		if err := s.orderRepo.Create(tx, order); err != nil {

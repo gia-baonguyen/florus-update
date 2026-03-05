@@ -31,7 +31,12 @@ export interface UpdateReviewRequest {
 export const reviewsApi = {
   getProductReviews: async (productId: number): Promise<ReviewListResponse> => {
     const response = await api.get<ApiResponse<ReviewListResponse>>(`/products/${productId}/reviews`);
-    return response.data.data;
+    const data = response.data.data;
+    return {
+      reviews: data.reviews || [],
+      total_reviews: data.total_reviews,
+      average_rating: data.average_rating,
+    };
   },
 
   createReview: async (productId: number, data: CreateReviewRequest): Promise<Review> => {

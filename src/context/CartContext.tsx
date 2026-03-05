@@ -9,8 +9,9 @@ interface CartContextType {
   error: string | null;
   crossSellProducts: Product[];
   addItem: (productId: number, quantity?: number) => Promise<void>;
-  updateItem: (productId: number, quantity: number) => Promise<void>;
-  removeItem: (productId: number) => Promise<void>;
+  // update/remove use cart item ID, not product ID
+  updateItem: (itemId: number, quantity: number) => Promise<void>;
+  removeItem: (itemId: number) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
 }
@@ -84,13 +85,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const updateItem = async (productId: number, quantity: number) => {
+  const updateItem = async (itemId: number, quantity: number) => {
     if (!isAuthenticated) return;
 
     try {
       setLoading(true);
       setError(null);
-      const updatedCart = await cartApi.updateItem(productId, quantity);
+      const updatedCart = await cartApi.updateItem(itemId, quantity);
       setCart(updatedCart);
     } catch (err) {
       console.error('Error updating cart:', err);
@@ -101,13 +102,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const removeItem = async (productId: number) => {
+  const removeItem = async (itemId: number) => {
     if (!isAuthenticated) return;
 
     try {
       setLoading(true);
       setError(null);
-      await cartApi.removeItem(productId);
+      await cartApi.removeItem(itemId);
       await refreshCart();
     } catch (err) {
       console.error('Error removing from cart:', err);

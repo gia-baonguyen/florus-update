@@ -8,11 +8,13 @@ import { useWishlist } from '../context/WishlistContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import type { Product } from '../types';
+import { useEventTracking } from '../hooks/useEventTracking';
 
 interface ProductDetailPageProps {
   productId: string;
   onProductClick: (productId: string) => void;
-  onAddToCart: (productId: string) => void;
+  // truyền luôn quantity để BE/FE xử lý 1 item với số lượng > 1, không lặp nhiều lần
+  onAddToCart: (productId: string, quantity: number) => void;
 }
 
 export function ProductDetailPage({ productId, onProductClick, onAddToCart }: ProductDetailPageProps) {
@@ -26,6 +28,7 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { trackProductView, trackAddToCart, trackAddToWishlist } = useEventTracking();
 
   const handleWishlistClick = async () => {
     if (!isAuthenticated) {
@@ -34,7 +37,12 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
     }
     if (product) {
       try {
+        const currentlyWishlisted = isInWishlist(product.id);
         await toggleWishlist(product.id);
+        // Only track when item is being added to wishlist
+        if (!currentlyWishlisted) {
+          trackAddToWishlist(product.id);
+        }
       } catch (error) {
         console.error('Failed to toggle wishlist:', error);
       }
@@ -72,6 +80,13 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
       fetchProduct();
     }
   }, [productId]);
+
+  // Track product view once product data is loaded
+  useEffect(() => {
+    if (product) {
+      trackProductView(product.id, product.category_id);
+    }
+  }, [product, trackProductView]);
 
   if (loading) {
     return (
@@ -116,9 +131,8 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
     : (product.discount || 0);
 
   const handleAddToCart = () => {
-    for (let i = 0; i < quantity; i++) {
-      onAddToCart(product.id.toString());
-    }
+    onAddToCart(product.id.toString(), quantity);
+    trackAddToCart(product.id, quantity, product.price);
   };
 
   const handleBuyNow = () => {
@@ -126,10 +140,9 @@ export function ProductDetailPage({ productId, onProductClick, onAddToCart }: Pr
       navigate('/login');
       return;
     }
-    // Add to cart first, then navigate to checkout
-    for (let i = 0; i < quantity; i++) {
-      onAddToCart(product.id.toString());
-    }
+    // Add to cart once với quantity đã chọn, sau đó chuyển sang checkout
+    onAddToCart(product.id.toString(), quantity);
+    trackAddToCart(product.id, quantity, product.price);
     navigate('/checkout');
   };
 

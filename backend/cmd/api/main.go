@@ -28,6 +28,33 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
+	// CLI mode (one-shot commands). Useful for reseeding inside Docker.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "migrate":
+			if err := migrations.AutoMigrate(db); err != nil {
+				log.Fatalf("Failed to run migrations: %v", err)
+			}
+			log.Println("Migrate completed")
+			return
+		case "seed":
+			if err := migrations.Seed(db); err != nil {
+				log.Fatalf("Failed to seed database: %v", err)
+			}
+			log.Println("Seed completed")
+			return
+		case "reseed":
+			if err := migrations.AutoMigrate(db); err != nil {
+				log.Fatalf("Failed to run migrations: %v", err)
+			}
+			if err := migrations.ForceSeed(db); err != nil {
+				log.Fatalf("Failed to reseed database: %v", err)
+			}
+			log.Println("Reseed completed")
+			return
+		}
+	}
+
 	// Run migrations
 	if err := migrations.AutoMigrate(db); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)

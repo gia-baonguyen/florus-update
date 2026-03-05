@@ -57,6 +57,14 @@ export const couponsApi = {
     return response.data.data;
   },
 
+  // Public - get available coupons for a given order total (optional)
+  getAvailable: async (orderTotal?: number): Promise<Coupon[]> => {
+    const response = await api.get<ApiResponse<{ coupons: Coupon[] | null }>>('/coupons/available', {
+      params: orderTotal ? { order_total: orderTotal } : undefined,
+    });
+    return response.data.data.coupons || [];
+  },
+
   // Admin - get all coupons
   getAll: async (page = 1, limit = 20): Promise<CouponListResponse> => {
     const response = await api.get<ApiResponse<CouponListResponse>>(`/admin/coupons`, {

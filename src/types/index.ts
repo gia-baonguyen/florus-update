@@ -7,6 +7,8 @@ export interface User {
   address?: string;
   role: 'admin' | 'user';
   user_status: 'cold' | 'warm';
+  loyalty_tier?: string;
+  loyalty_points?: number;
 }
 
 export interface AuthResponse {
@@ -161,4 +163,48 @@ export interface DashboardStats {
   new_users_this_month: number;
   recent_orders: AdminOrder[];
   top_products: TopProduct[];
+}
+
+// Address / shipping / loyalty / returns
+export interface UserAddress {
+  id: number;
+  full_name: string;
+  phone: string;
+  street: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country_code: string;
+  is_default: boolean;
+}
+
+export interface ShippingMethod {
+  code: string;
+  name: string;
+  description?: string;
+}
+
+export interface LoyaltyInfo {
+  tier: string;
+  points: number;
+}
+
+export interface ReturnItem {
+  id: number;
+  order_item_id: number;
+  product?: Product;
+  quantity: number;
+  refund_amount: number;
+  status?: string;
+}
+
+export interface ReturnRequest {
+  id: number;
+  order_id: number;
+  status: string;
+  reason?: string;
+  note?: string;
+  items: ReturnItem[];
+  created_at: string;
+  updated_at: string;
 }

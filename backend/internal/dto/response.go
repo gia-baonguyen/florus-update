@@ -19,6 +19,8 @@ type UserResponse struct {
 	UserStatus   models.UserStatus   `json:"user_status"`
 	AuthProvider models.AuthProvider `json:"auth_provider"`
 	AvatarURL    string              `json:"avatar_url,omitempty"`
+	LoyaltyTier  string              `json:"loyalty_tier"`
+	LoyaltyPoints int64              `json:"loyalty_points"`
 }
 
 func ToUserResponse(user *models.User) UserResponse {
@@ -32,6 +34,8 @@ func ToUserResponse(user *models.User) UserResponse {
 		UserStatus:   user.UserStatus,
 		AuthProvider: user.AuthProvider,
 		AvatarURL:    user.AvatarURL,
+		LoyaltyTier:  user.LoyaltyTier,
+		LoyaltyPoints: user.LoyaltyPoints,
 	}
 }
 
@@ -288,6 +292,87 @@ func ToAdminUserResponse(user *models.User, orderCount int64) AdminUserResponse 
 		OrderCount: orderCount,
 		CreatedAt:  user.CreatedAt.Format("2006-01-02 15:04:05"),
 	}
+}
+
+// Address responses
+type UserAddressResponse struct {
+	ID          uint   `json:"id"`
+	FullName    string `json:"full_name"`
+	Phone       string `json:"phone"`
+	Street      string `json:"street"`
+	City        string `json:"city"`
+	State       string `json:"state"`
+	PostalCode  string `json:"postal_code"`
+	CountryCode string `json:"country_code"`
+	IsDefault   bool   `json:"is_default"`
+}
+
+func ToUserAddressResponse(a *models.UserAddress) UserAddressResponse {
+	return UserAddressResponse{
+		ID:          a.ID,
+		FullName:    a.FullName,
+		Phone:       a.Phone,
+		Street:      a.Street,
+		City:        a.City,
+		State:       a.State,
+		PostalCode:  a.PostalCode,
+		CountryCode: a.CountryCode,
+		IsDefault:   a.IsDefault,
+	}
+}
+
+// Shipping responses
+type ShippingMethodResponse struct {
+	Code        string `json:"code"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
+// Return / RMA responses
+type ReturnItemResponse struct {
+	ID           uint    `json:"id"`
+	OrderItemID  uint    `json:"order_item_id"`
+	Product      ProductResponse `json:"product,omitempty"`
+	Quantity     int     `json:"quantity"`
+	RefundAmount float64 `json:"refund_amount"`
+	Status       string  `json:"status,omitempty"`
+}
+
+type ReturnResponse struct {
+	ID        uint                `json:"id"`
+	OrderID   uint                `json:"order_id"`
+	Status    string              `json:"status"`
+	Reason    string              `json:"reason,omitempty"`
+	Note      string              `json:"note,omitempty"`
+	Items     []ReturnItemResponse `json:"items"`
+	CreatedAt string              `json:"created_at"`
+	UpdatedAt string              `json:"updated_at"`
+}
+
+func ToReturnResponse(r *models.Return) ReturnResponse {
+	resp := ReturnResponse{
+		ID:        r.ID,
+		OrderID:   r.OrderID,
+		Status:    string(r.Status),
+		Reason:    r.Reason,
+		Note:      r.Note,
+		CreatedAt: r.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt: r.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}
+	for _, it := range r.Items {
+		itemResp := ReturnItemResponse{
+			ID:           it.ID,
+			OrderItemID:  it.OrderItemID,
+			Quantity:     it.Quantity,
+			RefundAmount: it.RefundAmount,
+			Status:       it.Status,
+		}
+		if it.OrderItem.ID != 0 {
+			itemResp.Product = ToProductResponse(&it.OrderItem.Product)
+		}
+		resp.Items = append(resp.Items, itemResp)
+	}
+	return resp
 }
 
 // Dashboard Stats

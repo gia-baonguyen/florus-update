@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8081/api';
+// Backend is now expected to run inside Docker using backend/docker-compose.yaml
+// which exposes the API container on host port 8080 (mapped to container 8080).
+const API_BASE_URL = 'http://localhost:8080/api';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

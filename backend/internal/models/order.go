@@ -56,7 +56,11 @@ type Order struct {
 	Status          OrderStatus   `gorm:"type:varchar(50);default:pending" json:"status"`
 	PaymentMethod   PaymentMethod `gorm:"type:varchar(20);default:cod" json:"payment_method"`
 	PaymentStatus   PaymentStatus `gorm:"type:varchar(20);default:pending" json:"payment_status"`
+	// Legacy free-text shipping address (kept for backward compatibility)
 	ShippingAddress string        `gorm:"type:varchar(500)" json:"shipping_address,omitempty"`
+	// New structured shipping info (optional)
+	ShippingAddressID *uint  `gorm:"index" json:"shipping_address_id,omitempty"`
+	ShippingMethodCode string `gorm:"type:varchar(50)" json:"shipping_method_code,omitempty"`
 	Note            string        `gorm:"type:varchar(500)" json:"note,omitempty"`
 	CreatedAt       time.Time     `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt       time.Time     `gorm:"autoUpdateTime" json:"updated_at"`
@@ -65,6 +69,8 @@ type Order struct {
 	User       User        `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	OrderItems []OrderItem `gorm:"foreignKey:OrderID" json:"order_items,omitempty"`
 	Payment    *Payment    `gorm:"foreignKey:OrderID" json:"payment,omitempty"`
+	// Optional navigation to structured address
+	Address *UserAddress `gorm:"foreignKey:ShippingAddressID" json:"address,omitempty"`
 }
 
 func (Order) TableName() string {

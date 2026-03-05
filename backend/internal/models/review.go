@@ -9,7 +9,7 @@ type Review struct {
 	UserID    uint      `gorm:"index;not null" json:"user_id"`
 	ProductID uint      `gorm:"index;not null" json:"product_id"`
 	Rating    int       `gorm:"not null" json:"rating"` // 1-5
-	Comment   string    `gorm:"type:text" json:"comment"`
+	Comment   string    `gorm:"column:COMMENT_TEXT;type:text" json:"comment"`
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 

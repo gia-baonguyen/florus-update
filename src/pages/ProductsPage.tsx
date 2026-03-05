@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Loader2, Filter, ChevronDown, Grid, LayoutGrid, Package, Search, X, Star, Percent, CheckCircle } from 'lucide-react';
 import { categoriesApi, productsApi } from '../api/products';
 import { Category, Product } from '../types';
+import { useSearchTracking } from '../hooks/useEventTracking';
 import { ProductCard } from '../components/ProductCard';
 
 interface ProductsPageProps {
@@ -48,6 +49,7 @@ export function ProductsPage({ onProductClick }: ProductsPageProps) {
   const [inStockOnly, setInStockOnly] = useState<boolean>(initialInStock);
   const [onSaleOnly, setOnSaleOnly] = useState<boolean>(initialOnSale);
   const [minRating, setMinRating] = useState<number>(initialMinRating);
+  const trackSearch = useSearchTracking();
 
   useEffect(() => {
     loadCategories();
@@ -156,6 +158,9 @@ export function ProductsPage({ onProductClick }: ProductsPageProps) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
+    if (searchQuery.trim()) {
+      trackSearch(searchQuery);
+    }
   };
 
   const clearSearch = () => {

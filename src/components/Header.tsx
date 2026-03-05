@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, ShoppingCart, User, Sparkles, LogOut, X, Loader2, History } from 'lucide-react';
+import { Search, ShoppingCart, User, Sparkles, LogOut, X, Loader2, History, Heart } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { User as UserType, Product } from '../types';
 import { productsApi } from '../api/products';
@@ -22,6 +22,7 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
   
   const location = useLocation();
   const isOrderHistoryPage = location.pathname === '/orders';
+  const isWishlistPage = location.pathname === '/wishlist';
   
   const searchRef = useRef<HTMLDivElement>(null);
   const mobileSearchRef = useRef<HTMLDivElement>(null);
@@ -156,6 +157,23 @@ export function Header({ cartCount, onCartClick, onLogoClick, user, onLogout, on
           <div className="flex items-center gap-2">
             {user ? (
               <div className="flex items-center gap-2">
+                {/* Wishlist Button */}
+                <Link
+                  to="/wishlist"
+                  className={`p-2 rounded-lg transition-colors group ${
+                    isWishlistPage
+                      ? 'bg-[var(--color-primary-light)] text-[var(--color-primary)]'
+                      : 'hover:bg-[var(--color-primary-light)] text-gray-500'
+                  }`}
+                  title="Wishlist"
+                >
+                  <Heart
+                    className={`w-5 h-5 ${
+                      isWishlistPage ? 'text-[var(--color-primary)]' : 'group-hover:text-[var(--color-primary)]'
+                    }`}
+                  />
+                </Link>
+
                 {/* Order History Button */}
                 <Link
                   to="/orders"

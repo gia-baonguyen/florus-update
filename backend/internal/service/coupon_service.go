@@ -20,6 +20,9 @@ type CouponService interface {
 	Create(coupon *models.Coupon) error
 	GetByID(id uint) (*models.Coupon, error)
 	GetAll(page, limit int) ([]models.Coupon, int64, error)
+	// Public-facing list of coupons that are currently valid and applicable
+	// for a given order total (e.g. for cart coupon picker).
+	GetAvailable(orderTotal float64) ([]models.Coupon, error)
 	Update(coupon *models.Coupon) error
 	Delete(id uint) error
 	ValidateCoupon(code string, orderTotal float64) (*models.Coupon, float64, error)
@@ -55,6 +58,29 @@ func (s *couponService) GetByID(id uint) (*models.Coupon, error) {
 
 func (s *couponService) GetAll(page, limit int) ([]models.Coupon, int64, error) {
 	return s.couponRepo.GetAll(page, limit)
+}
+
+// GetAvailable returns all coupons that are currently valid (date, active, usage)
+// and whose minimum order amount is <= given orderTotal.
+func (s *couponService) GetAvailable(orderTotal float64) ([]models.Coupon, error) {
+	// We can reuse GetAll with a large limit since coupon count is usually small.
+	coupons, _, err := s.couponRepo.GetAll(1, 100)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []models.Coupon
+	for _, c := range coupons {
+		if !c.IsValid() {
+			continue
+		}
+		if orderTotal > 0 && orderTotal < c.MinOrderAmount {
+			// If orderTotal is provided and below min, skip
+			continue
+		}
+		result = append(result, c)
+	}
+	return result, nil
 }
 
 func (s *couponService) Update(coupon *models.Coupon) error {

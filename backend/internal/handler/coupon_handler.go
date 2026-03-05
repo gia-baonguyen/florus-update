@@ -38,6 +38,11 @@ type ValidateCouponRequest struct {
 	OrderTotal float64 `json:"order_total" binding:"required,gt=0"`
 }
 
+// GetAvailableCouponsRequest is used for query params when listing coupons for cart
+type GetAvailableCouponsRequest struct {
+	OrderTotal float64 `form:"order_total"`
+}
+
 func (h *CouponHandler) Create(c *gin.Context) {
 	var req CreateCouponRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -107,6 +112,27 @@ func (h *CouponHandler) GetAll(c *gin.Context) {
 			"total":       total,
 			"total_pages": (total + int64(limit) - 1) / int64(limit),
 		},
+	})
+}
+
+// GetAvailable returns a public list of currently valid coupons.
+// Optional query param: order_total – when provided, only coupons whose
+// MinOrderAmount <= order_total are returned.
+func (h *CouponHandler) GetAvailable(c *gin.Context) {
+	var req GetAvailableCouponsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	coupons, err := h.couponService.GetAvailable(req.OrderTotal)
+	if err != nil {
+		utils.InternalServerError(c, "Failed to get available coupons")
+		return
+	}
+
+	utils.OK(c, "Available coupons retrieved successfully", gin.H{
+		"coupons": coupons,
 	})
 }
 

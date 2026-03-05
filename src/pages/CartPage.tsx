@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Trash2, Plus, Minus, ShoppingBag, Zap, Gift, Loader2, Tag, X, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Trash2, Plus, Minus, ShoppingBag, Zap, Gift, Loader2, Tag, X, Check, Percent } from 'lucide-react';
 import { ProductImage } from '../components/ProductImage';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { couponsApi, Coupon, ValidateCouponResponse } from '../api/coupons';
+import { useEventTracking } from '../hooks/useEventTracking';
 
 interface CartPageProps {
   onProductClick: (productId: string) => void;
@@ -20,6 +21,9 @@ export function CartPage({ onProductClick }: CartPageProps) {
   const [couponLoading, setCouponLoading] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [appliedCoupon, setAppliedCoupon] = useState<ValidateCouponResponse | null>(null);
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([]);
+  const [showCouponList, setShowCouponList] = useState(false);
+  const { trackAddToCart, trackRemoveFromCart } = useEventTracking();
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -110,6 +114,9 @@ export function CartPage({ onProductClick }: CartPageProps) {
   const handleAddCrossSell = async (productId: number) => {
     try {
       await addItem(productId, 1);
+      // Cross-sell add to cart tracking
+      const product = crossSellProducts.find((p) => p.id === productId);
+      trackAddToCart(productId, 1, product?.price || 0);
     } catch (err) {
       console.error('Error adding item:', err);
     }
@@ -137,6 +144,20 @@ export function CartPage({ onProductClick }: CartPageProps) {
     setAppliedCoupon(null);
     setCouponError(null);
   };
+
+  // Fetch available coupons once cart is loaded (Shopee-style list)
+  useEffect(() => {
+    const fetchCoupons = async () => {
+      if (!cart || !cart.subtotal) return;
+      try {
+        const coupons = await couponsApi.getAvailable(cart.subtotal);
+        setAvailableCoupons(coupons);
+      } catch (err) {
+        console.error('Failed to fetch available coupons', err);
+      }
+    };
+    fetchCoupons();
+  }, [cart?.subtotal]);
 
   const finalTotal = appliedCoupon
     ? cart!.total - appliedCoupon.discount
@@ -191,7 +212,10 @@ export function CartPage({ onProductClick }: CartPageProps) {
                     {/* Quantity Controls - Desktop */}
                     <div className="hidden md:flex flex-col items-end justify-between">
                       <button
-                        onClick={() => removeItem(product.id)}
+                        onClick={async () => {
+                          await removeItem(item.id);
+                          trackRemoveFromCart(product.id);
+                        }}
                         disabled={loading}
                         className="p-2 hover:bg-red-50 rounded-lg transition-colors group disabled:opacity-50"
                         aria-label="Remove item"
@@ -201,7 +225,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
 
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => updateItem(product.id, Math.max(1, item.quantity - 1))}
+                          onClick={() => updateItem(item.id, Math.max(1, item.quantity - 1))}
                           disabled={loading || item.quantity <= 1}
                           className="w-8 h-8 rounded-full border-2 border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all flex items-center justify-center disabled:opacity-50"
                         >
@@ -209,7 +233,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
                         </button>
                         <span className="w-8 text-center">{item.quantity}</span>
                         <button
-                          onClick={() => updateItem(product.id, item.quantity + 1)}
+                          onClick={() => updateItem(item.id, item.quantity + 1)}
                           disabled={loading}
                           className="w-8 h-8 rounded-full border-2 border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all flex items-center justify-center disabled:opacity-50"
                         >
@@ -222,7 +246,10 @@ export function CartPage({ onProductClick }: CartPageProps) {
                   {/* Quantity Controls - Mobile */}
                   <div className="md:hidden flex items-center justify-between mt-4 pt-4 border-t border-[var(--color-border)]">
                     <button
-                      onClick={() => removeItem(product.id)}
+                      onClick={async () => {
+                        await removeItem(item.id);
+                        trackRemoveFromCart(product.id);
+                      }}
                       disabled={loading}
                       className="flex items-center gap-2 text-red-500 hover:text-red-600 disabled:opacity-50"
                     >
@@ -232,7 +259,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
 
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => updateItem(product.id, Math.max(1, item.quantity - 1))}
+                        onClick={() => updateItem(item.id, Math.max(1, item.quantity - 1))}
                         disabled={loading || item.quantity <= 1}
                         className="w-8 h-8 rounded-full border-2 border-[var(--color-border)] hover:border-[var(--color-primary)] transition-all flex items-center justify-center disabled:opacity-50"
                       >
@@ -240,7 +267,7 @@ export function CartPage({ onProductClick }: CartPageProps) {
                       </button>
                       <span className="w-8 text-center">{item.quantity}</span>
                       <button
-                        onClick={() => updateItem(product.id, item.quantity + 1)}
+                        onClick={() => updateItem(item.id, item.quantity + 1)}
                         disabled={loading}
                         className="w-8 h-8 rounded-full border-2 border-[var(--color-border)] hover:border-[var(--color-primary)] transition-all flex items-center justify-center disabled:opacity-50"
                       >
@@ -285,26 +312,71 @@ export function CartPage({ onProductClick }: CartPageProps) {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                      placeholder="Enter coupon code"
-                      className="flex-1 px-3 py-2 text-sm border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
-                    />
-                    <button
-                      onClick={handleApplyCoupon}
-                      disabled={couponLoading || !couponCode.trim()}
-                      className="px-4 py-2 bg-[var(--color-primary)] text-white text-sm rounded-lg hover:bg-[var(--color-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {couponLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        'Apply'
-                      )}
-                    </button>
-                  </div>
+                  <>
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={couponCode}
+                        onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                        placeholder="Enter coupon code"
+                        className="flex-1 px-3 py-2 text-sm border border-[var(--color-border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+                      />
+                      <button
+                        onClick={handleApplyCoupon}
+                        disabled={couponLoading || !couponCode.trim()}
+                        className="px-4 py-2 bg-[var(--color-primary)] text-white text-sm rounded-lg hover:bg-[var(--color-primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {couponLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          'Apply'
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Shopee-style coupon list selector */}
+                    {availableCoupons.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCouponList((prev) => !prev)}
+                        className="mt-1 inline-flex items-center gap-1 text-[11px] text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
+                      >
+                        <Percent className="w-3 h-3" />
+                        <span>{showCouponList ? 'Hide available coupons' : 'Choose from available coupons'}</span>
+                      </button>
+                    )}
+
+                    {showCouponList && availableCoupons.length > 0 && (
+                      <div className="mt-2 space-y-2 max-h-40 overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
+                        {availableCoupons.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setCouponCode(c.code.toUpperCase());
+                              setShowCouponList(false);
+                            }}
+                            className="w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-md hover:bg-white"
+                          >
+                            <div>
+                              <span className="font-semibold mr-2">{c.code}</span>
+                              <span className="text-[var(--color-text-secondary)]">
+                                {c.discount_type === 'percent'
+                                  ? `${c.discount_value}% off`
+                                  : `Save ${formatPrice(c.discount_value * 1000)}`}
+                              </span>
+                              {c.min_order_amount > 0 && (
+                                <p className="text-[10px] text-[var(--color-text-muted)] mt-0.5">
+                                  Min order {formatPrice(c.min_order_amount)}
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-[var(--color-primary)] text-[11px] font-medium">Select</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {couponError && (
