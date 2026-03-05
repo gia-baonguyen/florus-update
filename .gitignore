@@ -32,3 +32,9 @@ npm-debug.log*
 
 # Go
 backend/tmp/
+
+# Large data files
+backend/data/*.csv
+backend/data/*.json
+backend/data/lake/
+*.parquet
