@@ -1,0 +1,85 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'florus-monitor'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files:
+  - "alert_rules.yml"
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # Redis metrics via redis_exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['florus-redis-exporter:9121']
+        labels:
+          service: 'redis'
+
+  # MinIO metrics - requires MINIO_PROMETHEUS_AUTH_TYPE=public in MinIO config
+  # Uncomment when MinIO is configured for Prometheus
+  # - job_name: 'minio'
+  #   metrics_path: /minio/v2/metrics/cluster
+  #   scheme: http
+  #   static_configs:
+  #     - targets: ['florus-minio:9000']
+  #       labels:
+  #         service: 'minio'
+
+  # Spark Master metrics - requires Prometheus servlet configuration
+  # Uncomment when Spark is configured with Prometheus sink
+  # - job_name: 'spark-master'
+  #   metrics_path: /metrics/prometheus
+  #   static_configs:
+  #     - targets: ['florus-spark-master:8080']
+  #       labels:
+  #         service: 'spark-master'
+
+  # PostgreSQL metrics via postgres_exporter
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['florus-postgres-exporter:9187']
+        labels:
+          service: 'postgres'
+
+  # Node/Host metrics via node_exporter
+  - job_name: 'node'
+    static_configs:
+      - targets: ['florus-node-exporter:9100']
+        labels:
+          service: 'node'
+
+  # Container metrics via cAdvisor
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['florus-cadvisor:8080']
+        labels:
+          service: 'cadvisor'
+
+  # Kafka broker metrics - requires JMX exporter setup
+  # Uncomment when Kafka is configured with JMX exporter
+  # - job_name: 'kafka'
+  #   static_configs:
+  #     - targets: ['florus-kafka:9101']
+  #       labels:
+  #         service: 'kafka'
+
+  # Airflow webserver metrics - requires statsd exporter
+  # Uncomment when Airflow is configured with statsd-exporter
+  # - job_name: 'airflow'
+  #   metrics_path: /metrics
+  #   static_configs:
+  #     - targets: ['florus-airflow-statsd:9102']
+  #       labels:
+  #         service: 'airflow'

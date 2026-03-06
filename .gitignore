@@ -38,3 +38,13 @@ backend/data/*.csv
 backend/data/*.json
 backend/data/lake/
 *.parquet
+
+
+# Airflow logs and temporary files
+devops/airflow/logs/
+devops/airflow/plugins/
+**/__pycache__/
+*.log
+
+# System files
+nul

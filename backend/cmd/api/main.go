@@ -13,6 +13,8 @@ import (
 	"github.com/florus/backend/internal/router"
 	"github.com/florus/backend/migrations"
 	"github.com/florus/backend/pkg/database"
+	kafkapkg "github.com/florus/backend/pkg/kafka"
+	redispkg "github.com/florus/backend/pkg/redis"
 )
 
 func main() {
@@ -26,6 +28,39 @@ func main() {
 	db, err := database.Connect(&cfg.Database)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	// Connect to Redis (optional - will fallback to no-op if disabled/unavailable)
+	var redisClient *redispkg.Config
+	if cfg.Redis.Enabled {
+		redisClient = &redispkg.Config{
+			Host:     cfg.Redis.Host,
+			Port:     cfg.Redis.Port,
+			Password: cfg.Redis.Password,
+			DB:       cfg.Redis.DB,
+		}
+		if err := redispkg.Connect(redisClient); err != nil {
+			log.Printf("Warning: Redis not available, caching disabled: %v", err)
+		} else {
+			defer redispkg.Close()
+		}
+	} else {
+		log.Printf("Redis caching disabled")
+	}
+
+	// Connect to Kafka (optional - for event streaming)
+	if cfg.Kafka.Enabled {
+		kafkaCfg := &kafkapkg.Config{
+			Brokers: cfg.Kafka.Brokers,
+			Enabled: cfg.Kafka.Enabled,
+		}
+		if err := kafkapkg.Connect(kafkaCfg); err != nil {
+			log.Printf("Warning: Kafka not available, event streaming disabled: %v", err)
+		} else {
+			defer kafkapkg.CloseDefault()
+		}
+	} else {
+		log.Printf("Kafka event streaming disabled")
 	}
 
 	// CLI mode (one-shot commands). Useful for reseeding inside Docker.

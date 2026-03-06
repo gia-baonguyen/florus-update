@@ -1,0 +1,144 @@
+version: '3.8'
+
+x-airflow-common:
+  &airflow-common
+  build:
+    context: ./devops/airflow
+    dockerfile: Dockerfile
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+    AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: '30'
+    # Spark connection
+    SPARK_MASTER_URL: spark://spark-master:7077
+    SPARK_MASTER_HOST: florus-spark-master
+    # MinIO connection
+    MINIO_ENDPOINT: http://florus-minio:9000
+    MINIO_ACCESS_KEY: minioadmin
+    MINIO_SECRET_KEY: minioadmin123
+    MINIO_BUCKET: florus-data
+    # Redis connection
+    REDIS_HOST: florus-redis
+    REDIS_PORT: '6379'
+    # Kafka connection
+    KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    KAFKA_TOPIC: florus-user-events
+    # Oracle connection
+    ORACLE_JDBC_URL: jdbc:oracle:thin:@florus-oracle:1521/XEPDB1
+    ORACLE_USER: florus
+    ORACLE_PASSWORD: florus123
+  volumes:
+    - ./devops/airflow/dags:/opt/airflow/dags
+    - ./devops/airflow/plugins:/opt/airflow/plugins
+    - ./devops/airflow/logs:/opt/airflow/logs
+    - ./devops/spark/scripts:/opt/spark/scripts:ro
+    - ./devops/spark/jars:/opt/spark/jars:ro
+    - /var/run/docker.sock:/var/run/docker.sock
+  networks:
+    - florus-network
+  depends_on:
+    &airflow-common-depends-on
+    airflow-postgres:
+      condition: service_healthy
+
+services:
+  airflow-postgres:
+    image: postgres:15-alpine
+    container_name: florus-airflow-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - florus-network
+    restart: unless-stopped
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: florus-airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db init
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@florus.com || true
+        echo "Airflow initialized successfully!"
+    depends_on:
+      <<: *airflow-common-depends-on
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: florus-airflow-webserver
+    command: webserver
+    ports:
+      - "8085:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: florus-airflow-scheduler
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  airflow-triggerer:
+    <<: *airflow-common
+    container_name: florus-airflow-triggerer
+    command: triggerer
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type TriggererJob --hostname \"$${HOSTNAME}\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  airflow_postgres_data:
+
+networks:
+  florus-network:
+    external: true
+    name: florus_datn_florus-network

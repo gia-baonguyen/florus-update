@@ -8,6 +8,9 @@ import (
 	"github.com/florus/backend/internal/middleware"
 	"github.com/florus/backend/internal/repository"
 	"github.com/florus/backend/internal/service"
+	kafkapkg "github.com/florus/backend/pkg/kafka"
+	neo4jpkg "github.com/florus/backend/pkg/neo4j"
+	redispkg "github.com/florus/backend/pkg/redis"
 	"github.com/florus/backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -51,12 +54,38 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	loyaltyRepo := repository.NewLoyaltyRepository(db)
 	loyaltyService := service.NewLoyaltyService(loyaltyRepo)
 	orderService := service.NewOrderService(orderRepo, cartRepo, productRepo, userRepo, couponService, loyaltyService)
-	recommendationService := service.NewRecommendationService(productRepo, eventRepo)
+	// Initialize recommendation service with optional caching
+	baseRecommendationService := service.NewRecommendationService(productRepo, eventRepo)
+	var cacheService service.CacheService
+	var sparkRecommendationService service.SparkRecommendationService
+	if redispkg.IsConnected() {
+		cacheService = service.NewCacheService(redispkg.Client)
+		log.Printf("Redis caching enabled for recommendations")
+		// Initialize Spark recommendation service (reads ML recommendations from Redis)
+		sparkRecommendationService = service.NewSparkRecommendationService(
+			redispkg.Client,
+			productRepo,
+			baseRecommendationService,
+		)
+		log.Printf("Spark ML recommendation service initialized")
+	} else {
+		cacheService = service.NewNoOpCacheService()
+		log.Printf("Redis not available, using no-op cache")
+	}
+	recommendationService := service.NewCachedRecommendationService(baseRecommendationService, cacheService)
 	adminService := service.NewAdminService(db)
 	wishlistService := service.NewWishlistService(wishlistRepo, productRepo)
 	reviewService := service.NewReviewService(reviewRepo, productRepo)
 	paymentService := service.NewPaymentService(db, orderRepo, cfg.Payment)
-	eventService := service.NewEventService(eventRepo, nil)
+	// Initialize Kafka client for event streaming
+	var kafkaClient service.KafkaClient
+	if kafkapkg.IsConnected() {
+		kafkaClient = kafkapkg.GetProducer()
+		log.Printf("Kafka event streaming enabled")
+	} else {
+		log.Printf("Kafka not available, event streaming disabled")
+	}
+	eventService := service.NewEventService(eventRepo, kafkaClient)
 	addressService := service.NewAddressService(repository.NewUserAddressRepository(db))
 	shippingService := service.NewShippingService(repository.NewShippingRepository(db))
 	returnService := service.NewReturnService(repository.NewReturnRepository(db), orderRepo)
@@ -81,6 +110,35 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	orderHandler := handler.NewOrderHandler(orderService)
 	recommendationHandler := handler.NewRecommendationHandler(recommendationService)
 	adminHandler := handler.NewAdminHandler(adminService)
+
+	// Initialize Spark handler (only if Redis is available)
+	var sparkHandler *handler.SparkHandler
+	if sparkRecommendationService != nil {
+		sparkHandler = handler.NewSparkHandler(sparkRecommendationService)
+	}
+
+	// Initialize Neo4j Graph recommendation handler (only if Neo4j is enabled)
+	var graphHandler *handler.GraphRecommendationHandler
+	if cfg.Neo4j.Enabled {
+		neo4jClient, err := neo4jpkg.NewClient(neo4jpkg.Config{
+			URI:      cfg.Neo4j.URI,
+			User:     cfg.Neo4j.User,
+			Password: cfg.Neo4j.Password,
+		})
+		if err != nil {
+			log.Printf("Warning: Neo4j not available, graph recommendations disabled: %v", err)
+		} else {
+			graphService := service.NewGraphRecommendationService(
+				neo4jClient,
+				productRepo,
+				baseRecommendationService,
+			)
+			graphHandler = handler.NewGraphRecommendationHandler(graphService)
+			log.Printf("Neo4j graph recommendation service initialized")
+		}
+	} else {
+		log.Printf("Neo4j graph recommendations disabled")
+	}
 	wishlistHandler := handler.NewWishlistHandler(wishlistService)
 	reviewHandler := handler.NewReviewHandler(reviewService)
 	couponHandler := handler.NewCouponHandler(couponService)
@@ -234,6 +292,31 @@ func Setup(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			recommendations.GET("/similar/:productId", recommendationHandler.GetSimilar)
 			recommendations.GET("/co-viewed/:productId", recommendationHandler.GetCoViewed)
 			recommendations.GET("/cross-sell/:productId", recommendationHandler.GetCrossSell)
+
+			// Spark ML-based recommendations (if available)
+			if sparkHandler != nil {
+				spark := recommendations.Group("/spark")
+				{
+					spark.GET("/status", sparkHandler.GetSparkStatus)
+					spark.GET("/similar/:productId", sparkHandler.GetSparkSimilarProducts)
+					// User recommendations require authentication
+					spark.GET("/user", middleware.Auth(cfg.JWT.Secret), sparkHandler.GetSparkRecommendations)
+				}
+			}
+
+			// Neo4j Graph-based recommendations (if available)
+			if graphHandler != nil {
+				graph := recommendations.Group("/graph")
+				{
+					graph.GET("/status", graphHandler.GetGraphStatus)
+					graph.GET("/similar/:productId", graphHandler.GetGraphSimilar)
+					graph.GET("/bought-together/:productId", graphHandler.GetFrequentlyBoughtTogether)
+					graph.GET("/category/:categoryId", graphHandler.GetCategoryBased)
+					// User-based recommendations require authentication
+					graph.GET("/user-based", middleware.Auth(cfg.JWT.Secret), graphHandler.GetUserBased)
+					graph.GET("/serendipity", middleware.Auth(cfg.JWT.Secret), graphHandler.GetSerendipity)
+				}
+			}
 		}
 
 		// Coupon routes (public validation, list available, admin for management)

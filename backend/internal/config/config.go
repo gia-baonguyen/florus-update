@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -14,6 +15,29 @@ type Config struct {
 	Google   GoogleConfig
 	Payment  PaymentConfig
 	Minio    MinioConfig
+	Redis    RedisConfig
+	Kafka    KafkaConfig
+	Neo4j    Neo4jConfig
+}
+
+type Neo4jConfig struct {
+	URI      string
+	User     string
+	Password string
+	Enabled  bool
+}
+
+type KafkaConfig struct {
+	Brokers []string
+	Enabled bool
+}
+
+type RedisConfig struct {
+	Host     string
+	Port     string
+	Password string
+	DB       int
+	Enabled  bool
 }
 
 type MinioConfig struct {
@@ -137,6 +161,23 @@ func Load() *Config {
 	viper.SetDefault("MINIO_BUCKET", "florus-images")
 	viper.SetDefault("MINIO_USE_SSL", false)
 
+	// Redis defaults
+	viper.SetDefault("REDIS_HOST", "localhost")
+	viper.SetDefault("REDIS_PORT", "6379")
+	viper.SetDefault("REDIS_PASSWORD", "")
+	viper.SetDefault("REDIS_DB", 0)
+	viper.SetDefault("REDIS_ENABLED", true)
+
+	// Kafka defaults
+	viper.SetDefault("KAFKA_BROKERS", "localhost:9092")
+	viper.SetDefault("KAFKA_ENABLED", true)
+
+	// Neo4j defaults
+	viper.SetDefault("NEO4J_URI", "bolt://localhost:7687")
+	viper.SetDefault("NEO4J_USER", "neo4j")
+	viper.SetDefault("NEO4J_PASSWORD", "florusneo4j123")
+	viper.SetDefault("NEO4J_ENABLED", true)
+
 	if err := viper.ReadInConfig(); err != nil {
 		log.Printf("Warning: Config file not found, using defaults and environment variables: %v", err)
 	}
@@ -194,6 +235,23 @@ func Load() *Config {
 			SecretKey: viper.GetString("MINIO_SECRET_KEY"),
 			Bucket:    viper.GetString("MINIO_BUCKET"),
 			UseSSL:    viper.GetBool("MINIO_USE_SSL"),
+		},
+		Redis: RedisConfig{
+			Host:     viper.GetString("REDIS_HOST"),
+			Port:     viper.GetString("REDIS_PORT"),
+			Password: viper.GetString("REDIS_PASSWORD"),
+			DB:       viper.GetInt("REDIS_DB"),
+			Enabled:  viper.GetBool("REDIS_ENABLED"),
+		},
+		Kafka: KafkaConfig{
+			Brokers: strings.Split(viper.GetString("KAFKA_BROKERS"), ","),
+			Enabled: viper.GetBool("KAFKA_ENABLED"),
+		},
+		Neo4j: Neo4jConfig{
+			URI:      viper.GetString("NEO4J_URI"),
+			User:     viper.GetString("NEO4J_USER"),
+			Password: viper.GetString("NEO4J_PASSWORD"),
+			Enabled:  viper.GetBool("NEO4J_ENABLED"),
 		},
 	}
 }

@@ -70,7 +70,7 @@ KAGGLE_DATASETS = {
 
 # Category mapping from various sources to Florus
 CATEGORY_MAPPING = {
-    # Sephora categories
+    # Primary categories (Sephora)
     "Skincare": "skincare",
     "Makeup": "makeup",
     "Hair": "hair",
@@ -81,24 +81,46 @@ CATEGORY_MAPPING = {
     "Gifts": "gifts",
     "Men": "men",
     "Wellness": "wellness",
+
+    # Secondary categories (Sephora)
+    "Hair Styling & Treatments": "hair-styling",
+    "Hair Styling": "hair-styling",
+    "Eye": "eye",
+    "Face": "face",
+    "Moisturizers": "moisturizer",
+    "Treatments": "treatments",
+    "Shampoo & Conditioner": "shampoo-conditioner",
+    "Lip": "lip",
+    "Cleansers": "cleanser",
+    "Candles & Home Scents": "candles-home-scents",
+    "Brushes & Applicators": "brushes-applicators",
+    "Body Moisturizers": "body-moisturizers",
+    "Eye Care": "eye",
+    "Masks": "mask",
+    "Cheek": "cheek",
+    "Sunscreen": "sunscreen",
+    "Bath & Shower": "bath-shower",
+    "High Tech Tools": "high-tech-tools",
+    "Body Care": "body-care",
+    "Self Tanners": "self-tanners",
+    "Lip Balms & Treatments": "lip-balms",
+    "Nail": "nail",
+    "Accessories": "accessories",
+    "Value & Gift Sets": "gift-sets",
+
     # Cosmetics dataset categories
-    "Moisturizers": "skincare",
-    "Cleansers": "skincare",
-    "Face Masks": "skincare",
-    "Eye Care": "skincare",
-    "Treatments": "skincare",
-    "Lip Care": "makeup",
-    "Sun Protect": "skincare",
+    "Face Masks": "mask",
+    "Lip Care": "lip",
+    "Sun Protect": "sunscreen",
+
     # General mappings
-    "Face": "skincare",
-    "Eye": "makeup",
-    "Lip": "makeup",
     "Body": "bath-body",
     "Hair Care": "hair",
 }
 
 # Default categories to create
 DEFAULT_CATEGORIES = [
+    # Primary categories
     {"name": "Skincare", "slug": "skincare", "description": "Face creams, serums, cleansers and more"},
     {"name": "Makeup", "slug": "makeup", "description": "Lipstick, foundation, eyeshadow and more"},
     {"name": "Hair", "slug": "hair", "description": "Shampoo, conditioner, styling products"},
@@ -109,6 +131,29 @@ DEFAULT_CATEGORIES = [
     {"name": "Gifts", "slug": "gifts", "description": "Gift sets and bundles"},
     {"name": "Men", "slug": "men", "description": "Men's grooming products"},
     {"name": "Wellness", "slug": "wellness", "description": "Supplements and wellness products"},
+    # Secondary categories (Sephora)
+    {"name": "Hair Styling", "slug": "hair-styling", "description": "Hair styling products and treatments"},
+    {"name": "Face", "slug": "face", "description": "Face care and makeup products"},
+    {"name": "Treatments", "slug": "treatments", "description": "Skincare treatments and serums"},
+    {"name": "Shampoo & Conditioner", "slug": "shampoo-conditioner", "description": "Hair cleansing and conditioning"},
+    {"name": "Candles & Home Scents", "slug": "candles-home-scents", "description": "Candles and home fragrance"},
+    {"name": "Brushes & Applicators", "slug": "brushes-applicators", "description": "Makeup brushes and applicators"},
+    {"name": "Lip", "slug": "lip", "description": "Lip care and lip makeup products"},
+    {"name": "Eye", "slug": "eye", "description": "Eye makeup and eye care products"},
+    {"name": "Cheek", "slug": "cheek", "description": "Cheek makeup - blush, bronzer, highlighter"},
+    {"name": "Self Tanners", "slug": "self-tanners", "description": "Self-tanning and bronzing products"},
+    {"name": "Body Care", "slug": "body-care", "description": "Body lotions, oils and treatments"},
+    {"name": "Gift Sets", "slug": "gift-sets", "description": "Value and gift sets"},
+    {"name": "Accessories", "slug": "accessories", "description": "Beauty accessories and tools"},
+    {"name": "High Tech Tools", "slug": "high-tech-tools", "description": "High-tech beauty devices"},
+    {"name": "Bath & Shower", "slug": "bath-shower", "description": "Bath and shower products"},
+    {"name": "Nail", "slug": "nail", "description": "Nail care and nail polish"},
+    {"name": "Body Moisturizers", "slug": "body-moisturizers", "description": "Body lotions and moisturizers"},
+    {"name": "Lip Balms", "slug": "lip-balms", "description": "Lip balms and lip treatments"},
+    {"name": "Cleanser", "slug": "cleanser", "description": "Face cleansers and makeup removers"},
+    {"name": "Moisturizer", "slug": "moisturizer", "description": "Face and body moisturizers"},
+    {"name": "Sunscreen", "slug": "sunscreen", "description": "Sun protection products"},
+    {"name": "Mask", "slug": "mask", "description": "Face masks and treatments"},
 ]
 
 
@@ -367,9 +412,10 @@ class KaggleDataImporter:
             except:
                 pass
 
-            # Category
-            category = self.clean_value(row.get("primary_category"), "Skincare")
-            category_id = self.map_category(category)
+            # Category - use secondary for more specific categorization
+            secondary_cat = self.clean_value(row.get("secondary_category"))
+            primary_cat = self.clean_value(row.get("primary_category"), "Skincare")
+            category_id = self.map_category(secondary_cat) if secondary_cat else self.map_category(primary_cat)
 
             # Description from highlights
             description = self.clean_value(row.get("highlights"))
