@@ -1,0 +1,113 @@
+# Neo4j deployment for Florus
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: neo4j-pvc
+  namespace: florus-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neo4j
+  namespace: florus-data
+  labels:
+    app: neo4j
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: neo4j
+  template:
+    metadata:
+      labels:
+        app: neo4j
+    spec:
+      containers:
+        - name: neo4j
+          image: neo4j:5.15-community
+          ports:
+            - containerPort: 7474
+              name: http
+            - containerPort: 7687
+              name: bolt
+          env:
+            - name: NEO4J_AUTH
+              value: "neo4j/florusneo4j123"
+            - name: NEO4J_PLUGINS
+              value: '["apoc"]'
+            - name: NEO4J_dbms_memory_heap_initial__size
+              value: "512m"
+            - name: NEO4J_dbms_memory_heap_max__size
+              value: "1G"
+            - name: NEO4J_dbms_memory_pagecache_size
+              value: "512m"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1"
+              memory: "2Gi"
+          volumeMounts:
+            - name: neo4j-data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 7474
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 7474
+            initialDelaySeconds: 30
+            periodSeconds: 5
+      volumes:
+        - name: neo4j-data
+          persistentVolumeClaim:
+            claimName: neo4j-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: neo4j-service
+  namespace: florus-data
+spec:
+  selector:
+    app: neo4j
+  ports:
+    - name: http
+      port: 7474
+      targetPort: 7474
+    - name: bolt
+      port: 7687
+      targetPort: 7687
+  type: ClusterIP
+---
+# NodePort for external access (optional, for debugging)
+apiVersion: v1
+kind: Service
+metadata:
+  name: neo4j-external
+  namespace: florus-data
+spec:
+  selector:
+    app: neo4j
+  ports:
+    - name: http
+      port: 7474
+      targetPort: 7474
+      nodePort: 30474
+    - name: bolt
+      port: 7687
+      targetPort: 7687
+      nodePort: 30687
+  type: NodePort

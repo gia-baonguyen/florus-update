@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: florus-production
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: florus
+
+  source:
+    repoURL: https://github.com/your-org/florus.git
+    targetRevision: main
+    path: k8s/overlays/production
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: florus
+
+  # Production: Manual sync required
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
+
+  revisionHistoryLimit: 20
+
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+      jsonPointers:
+        - /spec/minReplicas
+        - /spec/maxReplicas
+
+  info:
+    - name: Environment
+      value: production
+    - name: Team
+      value: florus-team
+    - name: On-call
+      value: "#florus-oncall"

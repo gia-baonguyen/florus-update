@@ -1,0 +1,39 @@
+# Florus application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: florus-config
+  namespace: florus
+data:
+  # Server
+  SERVER_PORT: "8081"
+  SERVER_MODE: "release"
+
+  # Database (Oracle - sử dụng service name trong K8s)
+  DB_HOST: "oracle-service.florus-data.svc.cluster.local"
+  DB_PORT: "1521"
+  DB_SERVICE: "XEPDB1"
+  DB_USER: "florus"
+
+  # Redis
+  REDIS_HOST: "redis-service.florus-data.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_ENABLED: "true"
+
+  # Neo4j
+  NEO4J_URI: "bolt://neo4j-service.florus-data.svc.cluster.local:7687"
+  NEO4J_USER: "neo4j"
+  NEO4J_ENABLED: "true"
+
+  # Kafka
+  KAFKA_BROKERS: "kafka-service.florus-data.svc.cluster.local:9092"
+  KAFKA_ENABLED: "true"
+
+  # MinIO
+  MINIO_ENDPOINT: "minio-service.florus-data.svc.cluster.local:9000"
+  MINIO_USE_SSL: "false"
+  MINIO_BUCKET: "florus-data"
+
+  # JWT
+  JWT_EXPIRATION_HOURS: "24"
+  JWT_ISSUER: "florus-api"

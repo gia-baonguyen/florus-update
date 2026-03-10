@@ -1,0 +1,102 @@
+# ArgoCD Installation for Florus
+# Run: kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# Then apply this file: kubectl apply -f install.yaml
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+---
+# ArgoCD ConfigMap customization
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  # Enable status badge
+  statusbadge.enabled: "true"
+
+  # Resource tracking method
+  application.resourceTrackingMethod: annotation
+
+  # Health checks for custom resources
+  resource.customizations.health.argoproj.io_Application: |
+    hs = {}
+    hs.status = "Progressing"
+    hs.message = ""
+    if obj.status ~= nil then
+      if obj.status.health ~= nil then
+        hs.status = obj.status.health.status
+        if obj.status.health.message ~= nil then
+          hs.message = obj.status.health.message
+        end
+      end
+    end
+    return hs
+
+  # URL configuration
+  url: https://argocd.florus.local
+
+  # Dex configuration for SSO (optional)
+  # dex.config: |
+  #   connectors:
+  #     - type: github
+  #       id: github
+  #       name: GitHub
+  #       config:
+  #         clientID: $GITHUB_CLIENT_ID
+  #         clientSecret: $GITHUB_CLIENT_SECRET
+  #         orgs:
+  #           - name: your-org
+
+---
+# ArgoCD RBAC ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-rbac-cm
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-rbac-cm
+    app.kubernetes.io/part-of: argocd
+data:
+  policy.default: role:readonly
+  policy.csv: |
+    # Admin group - full access
+    g, florus-admins, role:admin
+
+    # Developers - can view and sync staging
+    p, role:developer, applications, get, */*, allow
+    p, role:developer, applications, sync, */florus-staging, allow
+    p, role:developer, logs, get, */*, allow
+    g, florus-developers, role:developer
+
+    # Read-only for everyone else
+    p, role:readonly, applications, get, */*, allow
+    p, role:readonly, logs, get, */*, allow
+
+---
+# ArgoCD Server Service (NodePort for local access)
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-server-nodeport
+  namespace: argocd
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: argocd-server
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      nodePort: 30443
+    - name: https
+      port: 443
+      targetPort: 8080
+      nodePort: 30444

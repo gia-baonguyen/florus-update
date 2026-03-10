@@ -1,0 +1,125 @@
+# Florus Backend Deployment
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: florus
+  labels:
+    app: backend
+    tier: application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: florus-backend:local
+          imagePullPolicy: Never  # Use local image
+          ports:
+            - containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: florus-config
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: florus-secrets
+                  key: DB_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: florus-secrets
+                  key: JWT_SECRET
+            - name: NEO4J_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: florus-secrets
+                  key: NEO4J_PASSWORD
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: florus-secrets
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: florus-secrets
+                  key: MINIO_SECRET_KEY
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: florus
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8081
+      targetPort: 8081
+  type: ClusterIP
+---
+# NodePort for external access during development
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-external
+  namespace: florus
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8081
+      targetPort: 8081
+      nodePort: 30081
+  type: NodePort
+---
+# HorizontalPodAutoscaler (optional)
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: florus
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

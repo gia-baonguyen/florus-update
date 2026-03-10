@@ -1,0 +1,90 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: florus
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: Florus E-commerce Platform
+
+  # Source repositories
+  sourceRepos:
+    - https://github.com/your-org/florus.git
+    - https://github.com/your-org/florus-infra.git
+
+  # Destination clusters and namespaces
+  destinations:
+    - namespace: florus
+      server: https://kubernetes.default.svc
+    - namespace: florus-data
+      server: https://kubernetes.default.svc
+    - namespace: florus-monitoring
+      server: https://kubernetes.default.svc
+
+  # Allowed cluster resources
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+
+  # Allowed namespace resources
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: '*'
+    - group: apps
+      kind: '*'
+    - group: batch
+      kind: '*'
+    - group: networking.k8s.io
+      kind: '*'
+    - group: autoscaling
+      kind: '*'
+    - group: policy
+      kind: '*'
+
+  # Deny certain resources
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: ResourceQuota
+    - group: ''
+      kind: LimitRange
+
+  # Roles for team access
+  roles:
+    - name: developer
+      description: Developer access - can sync staging
+      policies:
+        - p, proj:florus:developer, applications, get, florus/*, allow
+        - p, proj:florus:developer, applications, sync, florus/florus-staging, allow
+        - p, proj:florus:developer, logs, get, florus/*, allow
+      groups:
+        - florus-developers
+
+    - name: admin
+      description: Admin access - full control
+      policies:
+        - p, proj:florus:admin, applications, *, florus/*, allow
+        - p, proj:florus:admin, repositories, *, florus/*, allow
+        - p, proj:florus:admin, logs, get, florus/*, allow
+        - p, proj:florus:admin, exec, create, florus/*, allow
+      groups:
+        - florus-admins
+
+  # Sync windows - only allow production sync during business hours
+  syncWindows:
+    - kind: allow
+      schedule: '0 9-17 * * 1-5'  # Mon-Fri 9AM-5PM
+      duration: 8h
+      applications:
+        - florus-production
+      manualSync: true
+    - kind: deny
+      schedule: '0 0-8,18-23 * * *'  # Outside business hours
+      duration: 14h
+      applications:
+        - florus-production
+      manualSync: false

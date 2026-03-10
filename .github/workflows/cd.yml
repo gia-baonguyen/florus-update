@@ -1,0 +1,214 @@
+name: CD Pipeline
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ${{ github.repository }}/florus-backend
+  FRONTEND_IMAGE: ${{ github.repository }}/florus-frontend
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: https://staging.florus.local
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.29.0'
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > kubeconfig
+          echo "KUBECONFIG=$(pwd)/kubeconfig" >> $GITHUB_ENV
+
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Deploy to staging
+        run: |
+          cd k8s/overlays/staging
+
+          # Update image tags
+          kustomize edit set image florus-backend=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          kustomize edit set image florus-frontend=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+          # Apply manifests
+          kustomize build . | kubectl apply -f -
+
+          # Wait for rollout
+          kubectl rollout status deployment/backend -n florus --timeout=300s
+          kubectl rollout status deployment/frontend -n florus --timeout=300s
+
+      - name: Run smoke tests
+        run: |
+          # Wait for services to be ready
+          sleep 30
+
+          # Health check
+          HEALTH_URL="${{ secrets.STAGING_API_URL }}/api/health"
+          for i in {1..5}; do
+            if curl -sf "$HEALTH_URL"; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying..."
+            sleep 10
+          done
+          echo "Health check failed"
+          exit 1
+
+      - name: Notify on success
+        if: success()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "✅ Staging deployment successful",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Florus Staging Deployment*\n✅ Successfully deployed `${{ github.sha }}`"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify on failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "❌ Staging deployment failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Florus Staging Deployment*\n❌ Failed to deploy `${{ github.sha }}`\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View logs>"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    environment:
+      name: production
+      url: https://florus.local
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.29.0'
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > kubeconfig
+          echo "KUBECONFIG=$(pwd)/kubeconfig" >> $GITHUB_ENV
+
+      - name: Set up Kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Deploy to production (Canary)
+        run: |
+          cd k8s/overlays/production
+
+          # Update image tags
+          kustomize edit set image florus-backend=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          kustomize edit set image florus-frontend=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+          # Apply manifests with canary strategy
+          kustomize build . | kubectl apply -f -
+
+          # Canary deployment - scale to 1 replica first
+          kubectl scale deployment/backend -n florus --replicas=1
+
+          # Wait for canary pod
+          kubectl rollout status deployment/backend -n florus --timeout=300s
+
+      - name: Run production smoke tests
+        run: |
+          sleep 30
+          HEALTH_URL="${{ secrets.PRODUCTION_API_URL }}/api/health"
+          for i in {1..5}; do
+            if curl -sf "$HEALTH_URL"; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying..."
+            sleep 10
+          done
+          echo "Health check failed"
+          exit 1
+
+      - name: Complete rollout
+        if: success()
+        run: |
+          # Scale to full replicas
+          kubectl scale deployment/backend -n florus --replicas=3
+          kubectl rollout status deployment/backend -n florus --timeout=300s
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          kubectl rollout undo deployment/backend -n florus
+          kubectl rollout undo deployment/frontend -n florus
+
+      - name: Notify on success
+        if: success()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "🚀 Production deployment successful",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Florus Production Deployment*\n🚀 Successfully deployed `${{ github.sha }}` to production!"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

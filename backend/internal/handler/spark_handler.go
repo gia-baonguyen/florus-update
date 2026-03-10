@@ -64,7 +64,8 @@ func (h *SparkHandler) GetSparkRecommendations(c *gin.Context) {
 // @Param limit query int false "Limit results" default(10)
 // @Success 200 {array} dto.ProductResponse
 // @Router /api/recommendations/spark/similar/{productId} [get]
-func (h *SparkHandler) GetSparkSimilarProducts(c *gin.Context) {
+func (h *SparkHandler) GetSparkSim
+ilarProducts(c *gin.Context) {
 	productID, err := strconv.ParseUint(c.Param("productId"), 10, 32)
 	if err != nil {
 		utils.BadRequest(c, "Invalid product ID")

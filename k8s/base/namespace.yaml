@@ -1,0 +1,25 @@
+# Florus namespaces
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: florus
+  labels:
+    app.kubernetes.io/name: florus
+    app.kubernetes.io/part-of: florus-platform
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: florus-data
+  labels:
+    app.kubernetes.io/name: florus-data
+    app.kubernetes.io/part-of: florus-platform
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: florus-monitoring
+  labels:
+    app.kubernetes.io/name: florus-monitoring
+    app.kubernetes.io/part-of: florus-platform

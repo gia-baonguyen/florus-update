@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: florus-data
+
+resources:
+  - redis.yaml
+  - neo4j.yaml
+  - minio.yaml
+  - kafka.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: florus
+  tier: data
