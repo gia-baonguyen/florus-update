@@ -14,7 +14,7 @@ commonLabels:
 images:
   - name: florus-backend
     newName: ghcr.io/gia-baonguyen/florus-backend
-    newTag: v1752d3dc4c8  # Updated by CI/CD pipeline
+    newTag: v1752d3d  # Updated by CI/CD pipeline
   - name: florus-frontend
     newName: florus-frontend
     newTag: local
@@ -26,11 +26,14 @@ replicas:
     count: 1
 
 patches:
-  # Staging: reduced resources + fix references
+  # Staging: reduced resources + fix references + enable image pull
   - target:
       kind: Deployment
       name: backend
     patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: IfNotPresent
       - op: replace
         path: /spec/template/spec/containers/0/resources/limits/memory
         value: 256Mi

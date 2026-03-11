@@ -86,9 +86,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           cd k8s/overlays/staging
-          # Get the SHA tag
-          IMAGE_TAG="v${{ github.sha }}"
-          IMAGE_TAG="${IMAGE_TAG:0:12}"
+          # Get the SHA tag (7 chars to match docker/metadata-action format)
+          IMAGE_TAG="v$(echo ${{ github.sha }} | cut -c1-7)"
           FULL_IMAGE="${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}"
 
           # Update kustomization.yaml - both newName and newTag
@@ -161,11 +160,12 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           cd k8s/overlays/staging
-          IMAGE_TAG="v${{ github.sha }}"
-          IMAGE_TAG="${IMAGE_TAG:0:12}"
+          # Get the SHA tag (7 chars to match docker/metadata-action format)
+          IMAGE_TAG="v$(echo ${{ github.sha }} | cut -c1-7)"
+          FULL_IMAGE="${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}"
 
           # Update frontend image in kustomization.yaml
-          sed -i "s|name: florus-frontend|name: florus-frontend|; /name: florus-frontend/{n;s|newName:.*|newName: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}|;n;s|newTag:.*|newTag: ${IMAGE_TAG}|}" kustomization.yaml
+          sed -i "s|name: florus-frontend|name: florus-frontend|; /name: florus-frontend/{n;s|newName:.*|newName: ${FULL_IMAGE}|;n;s|newTag:.*|newTag: ${IMAGE_TAG}  # Updated by CI/CD pipeline|}" kustomization.yaml
 
       - name: Commit and push manifest changes
         if: github.ref == 'refs/heads/main'
