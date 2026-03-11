@@ -13,7 +13,7 @@ commonLabels:
 
 images:
   - name: florus-backend
-    newName: florus-backend
+    newName: ghcr.io/gia-baonguyen/florus-backend
     newTag: v1752d3dc4c8  # Updated by CI/CD pipeline
   - name: florus-frontend
     newName: florus-frontend

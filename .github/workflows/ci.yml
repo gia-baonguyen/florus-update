@@ -89,11 +89,13 @@ jobs:
           # Get the SHA tag
           IMAGE_TAG="v${{ github.sha }}"
           IMAGE_TAG="${IMAGE_TAG:0:12}"
+          FULL_IMAGE="${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}"
 
-          # Update kustomization.yaml
+          # Update kustomization.yaml - both newName and newTag
+          sed -i "s|newName: .*florus-backend.*|newName: ${FULL_IMAGE}|" kustomization.yaml
           sed -i "s|newTag: v.*|newTag: ${IMAGE_TAG}  # Updated by CI/CD pipeline|" kustomization.yaml
 
-          echo "Updated backend image to: ${IMAGE_TAG}"
+          echo "Updated backend image to: ${FULL_IMAGE}:${IMAGE_TAG}"
           cat kustomization.yaml
 
       - name: Commit and push manifest changes
