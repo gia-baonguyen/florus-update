@@ -14,7 +14,7 @@ commonLabels:
 images:
   - name: florus-backend
     newName: florus-backend
-    newTag: v1.1.0  # Updated by CI/CD pipeline
+    newTag: v1.2.0  # Updated by CI/CD pipeline
   - name: florus-frontend
     newName: florus-frontend
     newTag: local

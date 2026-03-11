@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: florus-staging
+  name: florus-production
   namespace: argocd
 spec:
   project: default
@@ -9,11 +9,11 @@ spec:
   source:
     repoURL: https://github.com/gia-baonguyen/florus-update.git
     targetRevision: main
-    path: k8s/overlays/staging
+    path: k8s/overlays/production
 
   destination:
     server: https://kubernetes.default.svc
-    namespace: florus-staging
+    namespace: florus-production
 
   syncPolicy:
     automated:

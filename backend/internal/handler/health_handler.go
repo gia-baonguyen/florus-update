@@ -17,7 +17,7 @@ func (h *HealthHandler) HealthCheck(c *gin.Context) {
 	utils.OK(c, "OK", gin.H{
 		"status":  "healthy",
 		"service": "florus-api",
-		"version": "1.1.0",
+		"version": "1.2.0",
 	})
 }
 
