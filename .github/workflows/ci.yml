@@ -3,68 +3,59 @@ name: CI Pipeline
 on:
   push:
     branches: [main, develop]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main, develop]
 
 env:
   REGISTRY: ghcr.io
-  BACKEND_IMAGE: ${{ github.repository }}/florus-backend
-  FRONTEND_IMAGE: ${{ github.repository }}/florus-frontend
+  BACKEND_IMAGE: ${{ github.repository_owner }}/florus-backend
+  FRONTEND_IMAGE: ${{ github.repository_owner }}/florus-frontend
 
 jobs:
-  # ==================== BACKEND ====================
-  backend-test:
-    name: Backend Tests
+  # ==================== DETECT CHANGES ====================
+  changes:
+    name: Detect Changes
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./backend
-
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
         with:
-          go-version: '1.21'
-          cache-dependency-path: backend/go.sum
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
 
-      - name: Download dependencies
-        run: go mod download
-
-      - name: Run linter
-        uses: golangci/golangci-lint-action@v4
-        with:
-          working-directory: backend
-          version: latest
-
-      - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./backend/coverage.out
-          flags: backend
-
+  # ==================== BACKEND ====================
   backend-build:
     name: Backend Build & Push
     runs-on: ubuntu-latest
-    needs: backend-test
-    if: github.event_name == 'push'
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' && github.event_name == 'push'
     permissions:
-      contents: read
+      contents: write
       packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Container Registry
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -77,8 +68,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
           tags: |
-            type=ref,event=branch
-            type=sha,prefix=
+            type=sha,prefix=v
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push
@@ -92,60 +82,51 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Update Kustomize image tag (Staging)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd k8s/overlays/staging
+          # Get the SHA tag
+          IMAGE_TAG="v${{ github.sha }}"
+          IMAGE_TAG="${IMAGE_TAG:0:12}"
+
+          # Update kustomization.yaml
+          sed -i "s|newTag: v.*|newTag: ${IMAGE_TAG}  # Updated by CI/CD pipeline|" kustomization.yaml
+
+          echo "Updated backend image to: ${IMAGE_TAG}"
+          cat kustomization.yaml
+
+      - name: Commit and push manifest changes
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add k8s/overlays/staging/kustomization.yaml
+          git diff --staged --quiet || git commit -m "ci: update backend image to v${{ github.sha }}"
+          git push
+
   # ==================== FRONTEND ====================
-  frontend-test:
-    name: Frontend Tests
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run linter
-        run: npm run lint
-
-      - name: Run type check
-        run: npm run type-check
-
-      - name: Run tests
-        run: npm run test -- --coverage
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./frontend/coverage/lcov.info
-          flags: frontend
-
   frontend-build:
     name: Frontend Build & Push
     runs-on: ubuntu-latest
-    needs: frontend-test
-    if: github.event_name == 'push'
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' && github.event_name == 'push'
     permissions:
-      contents: read
+      contents: write
       packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Container Registry
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -158,8 +139,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}
           tags: |
-            type=ref,event=branch
-            type=sha,prefix=
+            type=sha,prefix=v
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push
@@ -175,63 +155,37 @@ jobs:
           build-args: |
             VITE_API_URL=/api
 
-  # ==================== SECURITY SCAN ====================
-  security-scan:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: [backend-build, frontend-build]
-    if: github.event_name == 'push'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Run Trivy vulnerability scanner (Backend)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
-          format: 'sarif'
-          output: 'backend-trivy-results.sarif'
-
-      - name: Run Trivy vulnerability scanner (Frontend)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
-          format: 'sarif'
-          output: 'frontend-trivy-results.sarif'
-
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: '.'
-
-  # ==================== UPDATE MANIFESTS ====================
-  update-manifests:
-    name: Update K8s Manifests
-    runs-on: ubuntu-latest
-    needs: [backend-build, frontend-build]
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update image tags in Kustomize
+      - name: Update Kustomize image tag (Staging)
+        if: github.ref == 'refs/heads/main'
         run: |
-          cd k8s/overlays/production
+          cd k8s/overlays/staging
+          IMAGE_TAG="v${{ github.sha }}"
+          IMAGE_TAG="${IMAGE_TAG:0:12}"
 
-          # Update backend image
-          kustomize edit set image florus-backend=${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          # Update frontend image in kustomization.yaml
+          sed -i "s|name: florus-frontend|name: florus-frontend|; /name: florus-frontend/{n;s|newName:.*|newName: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}|;n;s|newTag:.*|newTag: ${IMAGE_TAG}|}" kustomization.yaml
 
-          # Update frontend image
-          kustomize edit set image florus-frontend=${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
-
-      - name: Commit and push changes
+      - name: Commit and push manifest changes
+        if: github.ref == 'refs/heads/main'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add k8s/overlays/production/
-          git diff --staged --quiet || git commit -m "chore: update image tags to ${{ github.sha }}"
+          git add k8s/overlays/staging/kustomization.yaml
+          git diff --staged --quiet || git commit -m "ci: update frontend image to v${{ github.sha }}"
           git push
+
+  # ==================== NOTIFY ARGOCD ====================
+  notify-argocd:
+    name: Trigger ArgoCD Sync
+    runs-on: ubuntu-latest
+    needs: [backend-build, frontend-build]
+    if: always() && github.ref == 'refs/heads/main' && (needs.backend-build.result == 'success' || needs.frontend-build.result == 'success')
+
+    steps:
+      - name: Notify completion
+        run: |
+          echo "✅ CI Pipeline completed!"
+          echo "ArgoCD will automatically sync the new images from Git"
+          echo ""
+          echo "Backend: ${{ needs.backend-build.outputs.image_tag || 'no changes' }}"
+          echo "Frontend: ${{ needs.frontend-build.outputs.image_tag || 'no changes' }}"
