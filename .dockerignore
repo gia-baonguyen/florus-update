@@ -1,0 +1,58 @@
+# Git
+.git
+.gitignore
+
+# Dependencies
+node_modules
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Build outputs
+dist
+build
+
+# Backend (we only need frontend files)
+backend
+
+# DevOps
+devops
+
+# K8s
+k8s
+
+# Docs
+docs
+*.md
+
+# Docker files for other services
+docker-compose*.yml
+
+# Logs
+*.log
+logs/
+
+# Database files
+*.db
+*.sqlite
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test files
+coverage
+*.test.js
+*.spec.js
+
+# Temporary files
+tmp/
+temp/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -41,6 +41,38 @@ nodes:
       - containerPort: 30081
         hostPort: 30081
         protocol: TCP
+      # ArgoCD
+      - containerPort: 30443
+        hostPort: 30443
+        protocol: TCP
+      # Neo4j Browser
+      - containerPort: 30474
+        hostPort: 30474
+        protocol: TCP
+      # Neo4j Bolt
+      - containerPort: 30687
+        hostPort: 30687
+        protocol: TCP
+      # MinIO Console
+      - containerPort: 30901
+        hostPort: 30901
+        protocol: TCP
+      # Staging Frontend
+      - containerPort: 30180
+        hostPort: 30180
+        protocol: TCP
+      # Staging Backend
+      - containerPort: 30181
+        hostPort: 30181
+        protocol: TCP
+      # Production Frontend
+      - containerPort: 30280
+        hostPort: 30280
+        protocol: TCP
+      # Production Backend
+      - containerPort: 30281
+        hostPort: 30281
+        protocol: TCP
 
   # Worker node 1
   - role: worker

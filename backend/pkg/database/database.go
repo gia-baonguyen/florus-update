@@ -3,9 +3,11 @@ package database
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/florus/backend/internal/config"
 	oracle "github.com/dzwvip/gorm-oracle"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -14,6 +16,19 @@ var DB *gorm.DB
 
 func Connect(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 	var err error
+
+	// Check if database is disabled (for testing/CI purposes)
+	if os.Getenv("DB_ENABLED") == "false" {
+		log.Println("Database disabled, using SQLite in-memory for testing")
+		DB, err = gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Info),
+		})
+		if err != nil {
+			return nil, err
+		}
+		log.Println("SQLite in-memory database connected (test mode)")
+		return DB, nil
+	}
 
 	// Oracle connection string format for go-ora:
 	// oracle://user:password@host:port/service_name

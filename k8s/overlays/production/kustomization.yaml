@@ -1,71 +1,107 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: florus
+# Production uses separate namespace
+namespace: florus-production
 
 resources:
-  - ../../base
-  - ../../data
+  - namespace.yaml
   - ../../apps
-  - hpa.yaml
-  - pdb.yaml
 
 commonLabels:
   environment: production
 
 images:
   - name: florus-backend
-    newName: ghcr.io/your-org/florus-backend
-    newTag: latest
+    newName: florus-backend
+    newTag: local
   - name: florus-frontend
-    newName: ghcr.io/your-org/florus-frontend
-    newTag: latest
+    newName: florus-frontend
+    newTag: local
 
 replicas:
   - name: backend
-    count: 3
-  - name: frontend
     count: 2
+  - name: frontend
+    count: 1
 
 patches:
-  # Production resource limits
+  # Production: resources + fix references
   - target:
       kind: Deployment
       name: backend
     patch: |
       - op: replace
         path: /spec/template/spec/containers/0/resources/limits/memory
-        value: 1Gi
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/limits/cpu
-        value: "1"
-      - op: replace
-        path: /spec/template/spec/containers/0/resources/requests/memory
         value: 512Mi
       - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 256Mi
+      - op: replace
         path: /spec/template/spec/containers/0/resources/requests/cpu
-        value: 250m
-
-  # Add anti-affinity for high availability
+        value: 100m
+      - op: replace
+        path: /spec/template/spec/containers/0/envFrom/0/configMapRef/name
+        value: florus-production-config
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+        value: florus-production-secrets
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/valueFrom/secretKeyRef/name
+        value: florus-production-secrets
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/valueFrom/secretKeyRef/name
+        value: florus-production-secrets
+      - op: replace
+        path: /spec/template/spec/containers/0/env/3/valueFrom/secretKeyRef/name
+        value: florus-production-secrets
+      - op: replace
+        path: /spec/template/spec/containers/0/env/4/valueFrom/secretKeyRef/name
+        value: florus-production-secrets
+  # Change NodePort for production
   - target:
-      kind: Deployment
-      name: backend
+      kind: Service
+      name: backend-external
     patch: |
-      - op: add
-        path: /spec/template/spec/affinity
-        value:
-          podAntiAffinity:
-            preferredDuringSchedulingIgnoredDuringExecution:
-              - weight: 100
-                podAffinityTerm:
-                  labelSelector:
-                    matchLabels:
-                      app: backend
-                  topologyKey: kubernetes.io/hostname
+      - op: replace
+        path: /spec/ports/0/nodePort
+        value: 30281
+  - target:
+      kind: Service
+      name: frontend-external
+    patch: |
+      - op: replace
+        path: /spec/ports/0/nodePort
+        value: 30280
 
 configMapGenerator:
-  - name: florus-config
-    behavior: merge
+  - name: florus-production-config
     literals:
-      - LOG_LEVEL=info
-      - GIN_MODE=release
+      - SERVER_PORT=8081
+      - SERVER_MODE=release
+      - DB_ENABLED=false
+      - REDIS_HOST=redis-service.florus-data.svc.cluster.local
+      - REDIS_PORT=6379
+      - REDIS_ENABLED=true
+      - NEO4J_URI=bolt://neo4j-service.florus-data.svc.cluster.local:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_ENABLED=true
+      - KAFKA_BROKERS=kafka-service.florus-data.svc.cluster.local:9092
+      - KAFKA_ENABLED=true
+      - MINIO_ENDPOINT=minio-service.florus-data.svc.cluster.local:9000
+      - MINIO_USE_SSL=false
+      - MINIO_BUCKET=florus-production
+      - JWT_EXPIRATION_HOURS=24
+      - JWT_ISSUER=florus-api-production
+
+secretGenerator:
+  - name: florus-production-secrets
+    literals:
+      - DB_PASSWORD=production_password_secure
+      - JWT_SECRET=production_jwt_secret_key_secure_456
+      - NEO4J_PASSWORD=florusneo4j123
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123

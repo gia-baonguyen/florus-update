@@ -10,6 +10,7 @@ data:
   SERVER_MODE: "release"
 
   # Database (Oracle - sử dụng service name trong K8s)
+  DB_ENABLED: "false"  # Set to "true" when Oracle is available
   DB_HOST: "oracle-service.florus-data.svc.cluster.local"
   DB_PORT: "1521"
   DB_SERVICE: "XEPDB1"

@@ -1,10 +1,12 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24rc1-alpine AS builder
+
+ENV GOTOOLCHAIN=auto
 
 WORKDIR /app
 
 # Install dependencies
-RUN apk add --no-cache gcc musl-dev
+RUN apk add --no-cache gcc musl-dev git
 
 # Copy go mod files
 COPY go.mod go.sum ./
@@ -13,8 +15,8 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/api
+# Build the application (GOTOOLCHAIN already set at top)
+RUN GOTOOLCHAIN=auto CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/api
 
 # Final stage
 FROM alpine:latest

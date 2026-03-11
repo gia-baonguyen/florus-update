@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: florus-staging
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    # Local path for testing (in production, use Git repo URL)
+    repoURL: https://github.com/user/florus.git
+    targetRevision: develop
+    path: k8s/overlays/staging
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: florus-staging
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
